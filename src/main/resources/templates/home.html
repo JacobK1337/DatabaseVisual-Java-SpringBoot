@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Home</title>
+    <link th:href="@{css/styles.css}" rel="stylesheet" type="text/css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300&family=Exo:wght@200&family=Lato:wght@300&family=Overpass:wght@200&display=swap" rel="stylesheet">
+</head>
+<body>
+<header class="page-headers">DataShare Online</header>
+<p class="page-headers-desc">Start sharing your data now</p>
+
+<nav class="nav-bar">
+    <table>
+        <tr>
+            <th class="nav-bar--options"><a th:href="@{/}">Home</a></th>
+            <th class="nav-bar--options"><a th:href="@{/databases}">Your Databases</a></th>
+            <th class="nav-bar--options"><a>Logout</a></th>
+        </tr>
+    </table>
+</nav>
+</body>
+</html>

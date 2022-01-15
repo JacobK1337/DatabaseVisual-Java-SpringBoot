@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Your Databases</title>
+    <link th:href="@{css/styles.css}" rel="stylesheet" type="text/css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300&family=Exo:wght@200&family=Lato:wght@300&family=Overpass:wght@200&display=swap" rel="stylesheet">
+</head>
+<body>
+<header class="page-headers">DataShare Online</header>
+<p class="page-headers-desc">Your databases</p>
+<article class="database-list-parent">
+    <div class="database-list">
+        <tr th:each="database: ${userDatabases}">
+            <form th:action="@{/panel}" method="post">
+                <p><input type="submit" th:value="${database.getDatabaseName()}"></p>
+                <input type="hidden" name="databaseId" th:value="${database.getDatabaseId()}">
+            </form>
+        </tr>
+        <button class="testSubmit">Create new database</button>
+        <div class="create-database--form">
+        <form th:action="@{/createDatabase}" method="post">
+            <label for="databaseName" class="input-labels">New database name: </label>
+            <input type="text" id="databaseName" name="databaseName">
+            <br>
+            <input type="submit" value="Create">
+        </form>
+        </div>
+    </div>
+</article>
+
+<script>
+    document.querySelectorAll('.testSubmit').forEach(button =>{
+        button.addEventListener('click', () =>{
+            const databaseForm = button.nextElementSibling;
+            button.classList.toggle('create-database--form--active');
+            if(button.classList.contains('create-database--form--active')){
+                databaseForm.style.maxHeight = databaseForm.scrollHeight + 'px';
+            }
+            else{
+                databaseForm.style.maxHeight = 0;
+            }
+        })
+    })
+</script>
+</body>
+</html>
