@@ -6,7 +6,8 @@
     <link th:href="@{css/styles.css}" rel="stylesheet" type="text/css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300&family=Exo:wght@200&family=Lato:wght@300&family=Overpass:wght@200&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300&family=Exo:wght@200&family=Lato:wght@300&family=Overpass:wght@200&display=swap"
+          rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.js"></script>
     <script src="https://code.jquery.com/ui/1.13.0/jquery-ui.js"></script>
 </head>
@@ -15,25 +16,31 @@
 <div id="data-manage-container">
 
     <button class="data-manage-button">Filter data</button>
+
     <div class="data-manage-content">
-        <form th:action="@{/getFilteredTableData}" method="get" id="get-filtered-data--form"></form>
+        <form th:action="@{/getFilteredTableData}" method="get" id="get-filtered-data--form">
+            <input type="hidden" th:value="${tableId}" name="tableId">
+        </form>
     </div>
 
     <button class="data-manage-button">Add new data</button>
     <div class="data-manage-content">
-        <form th:action="@{/addData}" method="post" id="add-data--form"></form>
+        <form th:action="@{/addData}" method="post" id="add-data--form">
+            <input type="hidden" th:value="${tableId}" name="tableId">
+        </form>
     </div>
 
     <button class="data-manage-button">Field constraints</button>
     <div class="data-manage-content">
-        <form th:action="@{/addConstraint}" method="post" id="add-constr--form"></form>
+        <form th:action="@{/addConstraint}" method="post" id="add-constr--form">
+            <input type="hidden" th:value="${tableId}" name="tableId">
+        </form>
     </div>
 
     <button class="data-manage-button">Add new field</button>
     <div class="data-manage-content">
         <form th:action="@{/addField}" method="post" id="add-field--form">
             <input type="hidden" th:value="${tableId}" id="tableId" name="tableId">
-
             <p>
                 <label for="new-field-name">Field name:</label>
                 <input type="text" id="new-field-name" name="fieldName" minlength="3" maxlength="30">
@@ -66,13 +73,27 @@
 
         </form>
     </div>
+    <button class="data-manage-button">Style</button>
+    <div class="data-manage-content">
+
+    </div>
 
     <div id="data-results">
-        <header id="data-list-header">Data results: </header>
+        <header id="data-list-header">Data results:</header>
         <div id="data-list"></div>
-        <form th:action="@{/modifyData}" method="post" id="modify-data--form"></form>
-        <form th:action="@{/deleteData}" method="post" id="delete-data--form"></form>
-        <form th:action="@{/deleteField}" method="post" id="delete-field--form"></form>
+
+        <form th:action="@{/modifyData}" method="post" id="modify-data--form">
+            <input type="hidden" th:value="${tableId}" name="tableId">
+        </form>
+
+        <form th:action="@{/deleteData}" method="post" id="delete-data--form">
+            <input type="hidden" th:value="${tableId}" name="tableId">
+        </form>
+
+        <form th:action="@{/deleteField}" method="post" id="delete-field--form">
+            <input type="hidden" th:value="${tableId}" name="tableId">
+        </form>
+
     </div>
 
 </div>
@@ -80,81 +101,101 @@
 <script>
     const tableId = document.getElementById('tableId').value;
 
-    $("#new-field-submit").on('click', (e) =>{
+
+    $("#new-field-submit").on('click', (e) => {
         e.preventDefault();
         $.ajax({
             type: 'POST',
             url: '/addField',
             data: $("#add-field--form").serialize(),
-            success: function(){
+            success: function () {
                 //we remove the save button after successful saving
-                loadAllContents(tableId);
+                reloadAllContents(tableId);
             }
         });
     });
 
-   let controlPressed = false;
+    let controlPressed = false;
 
-    document.addEventListener('keydown', (e) =>{
-        if(e.keyCode === 17){
+    document.addEventListener('keydown', (e) => {
+        if (e.keyCode === 17) {
             controlPressed = true;
         }
 
     });
 
-    document.addEventListener('keyup', (e) =>{
-        if(e.keyCode === 17){
+    document.addEventListener('keyup', (e) => {
+        if (e.keyCode === 17) {
             controlPressed = false;
         }
 
     });
 
-    window.onload = () =>{
-        loadAllContents(tableId);
+    window.onload = async () => {
+        reloadAllContents(tableId);
     }
 
+    async function fetchTableFields(tableId) {
 
-    function loadAllContents(tabId){
-        loadFilterMenu(tabId);
-        loadAddDataMenu(tabId);
-        refreshData(tabId);
-    }
-
-    function refreshData(tabId){
-
-        fetch("/getTableData?tableId=" + tabId)
-            .then(response => response.json())
-            .then((responseJSON) =>{
-                loadData(responseJSON, tabId);
-            });
+        let response = await fetch("/getTableFields?tableId=" + tableId);
+        return await response.json();
 
     }
 
-    function loadFilterMenu(tabId){
+    async function fetchTableData(tableId) {
+
+        let response = await fetch("/getTableData?tableId=" + tableId);
+        return await response.json();
+
+    }
+
+    function reloadAllContents(tableId) {
+        reloadFilterMenu(tableId);
+        reloadAddDataMenu(tableId);
+        reloadData(tableId);
+    }
+
+    async function reloadData(tableId) {
+        const freshData = await fetchTableData(tableId);
+        const tableFields = await fetchTableFields(tableId);
+
+        loadData(freshData, tableId, tableFields);
+    }
+
+    async function reloadDataFiltered(tableId, filteredData){
+        const tableFields = await fetchTableFields(tableId);
+
+        loadData(filteredData, tableId, tableFields);
+    }
+    async function reloadFilterMenu(tableId) {
+        const tableFields = await fetchTableFields(tableId);
+
+        loadFilterMenu(tableId, tableFields);
+    }
+
+    async function reloadAddDataMenu(tableId) {
+        const tableFields = await fetchTableFields(tableId);
+
+        loadAddDataMenu(tableId, tableFields);
+    }
+
+    function loadFilterMenu(tableId, tableFields) {
 
         const getFilteredDataForm = document.getElementById('get-filtered-data--form');
-        while(getFilteredDataForm.firstChild){
-            getFilteredDataForm.removeChild(getFilteredDataForm.lastChild);
-        }
+
+        clearForm(getFilteredDataForm);
 
         const filterOptionsTable = document.createElement('table');
         filterOptionsTable.classList.add('data-table');
 
-        const tabIdInput = document.createElement('input');
-        tabIdInput.type='hidden';
-        tabIdInput.name='tableId';
-        tabIdInput.value=tabId;
-
-        getFilteredDataForm.appendChild(tabIdInput);
-
         const filterTableHeader = filterOptionsTable.insertRow();
 
-        for(let i = 0; i < 3; i ++){
+        for (let i = 0; i < 3; i++) {
 
             const td = filterTableHeader.insertCell();
             let columnName;
 
-            switch(i){
+            switch (i) {
                 case 0:
                     columnName = 'Column';
                     break;
@@ -170,227 +211,198 @@
 
         }
 
-        fetch("/getTableFields?tableId=" + tabId)
-            .then(response => response.json())
-            .then((responseJSON) =>{
-                const tableFields = responseJSON;
+        for (let i = 0; i < tableFields.length; i++) {
+            const tableRow = filterOptionsTable.insertRow();
 
-                for(let i = 0; i < tableFields.length; i++){
-                    const tableRow = filterOptionsTable.insertRow();
+            const fieldName = tableRow.insertCell();
+            fieldName.appendChild(document.createTextNode(tableFields[i][2]));
 
-                    const fieldName = tableRow.insertCell();
-                    fieldName.appendChild(document.createTextNode(tableFields[i][2]));
+            const comparator = tableRow.insertCell();
+            const comparatorOptionList = document.createElement('select');
+            comparatorOptionList.name = tableFields[i][0] + 'comparator';
 
-                    const comparator = tableRow.insertCell();
-                    const comparatorOptionList = document.createElement('select');
-                    comparatorOptionList.name = tableFields[i][0] + 'comparator';
+            const comparatorOptionNoFilter = document.createElement('option');
+            comparatorOptionNoFilter.value = 'null';
+            comparatorOptionNoFilter.text = 'No filter';
 
-                    const comparatorOptionNoFilter = document.createElement('option');
-                    comparatorOptionNoFilter.value = 'null';
-                    comparatorOptionNoFilter.text = 'No filter';
+            const comparatorOptionEqual = document.createElement('option');
+            comparatorOptionEqual.value = '=';
+            comparatorOptionEqual.text = 'Is equal';
 
-                    const comparatorOptionEqual = document.createElement('option');
-                    comparatorOptionEqual.value = '=';
-                    comparatorOptionEqual.text = 'Is equal';
+            const comparatorOptionNotEqual = document.createElement('option');
+            comparatorOptionNotEqual.value = '<>';
+            comparatorOptionNotEqual.text = 'Is not equal';
 
-                    const comparatorOptionNotEqual = document.createElement('option');
-                    comparatorOptionNotEqual.value = '<>';
-                    comparatorOptionNotEqual.text = 'Is not equal';
+            const comparatorOptionSmaller = document.createElement('option');
+            comparatorOptionSmaller.value = '<';
+            comparatorOptionSmaller.text = 'Is smaller';
 
-                    const comparatorOptionSmaller = document.createElement('option');
-                    comparatorOptionSmaller.value = '<';
-                    comparatorOptionSmaller.text = 'Is smaller';
+            const comparatorOptionGreater = document.createElement('option');
+            comparatorOptionGreater.value = '>';
+            comparatorOptionGreater.text = 'Is greater';
 
-                    const comparatorOptionGreater = document.createElement('option');
-                    comparatorOptionGreater.value = '>';
-                    comparatorOptionGreater.text = 'Is greater';
+            comparatorOptionList.appendChild(comparatorOptionNoFilter);
+            comparatorOptionList.appendChild(comparatorOptionEqual);
+            comparatorOptionList.appendChild(comparatorOptionNotEqual);
 
-                    const comparatorOptionMatchesRegex = document.createElement('option');
-                    comparatorOptionMatchesRegex.value = '%';
-                    comparatorOptionMatchesRegex.text = 'Matches expression';
+            if (tableFields[i][1] === 'int') comparatorOptionList.appendChild(comparatorOptionSmaller);
+            if (tableFields[i][1] === 'int') comparatorOptionList.appendChild(comparatorOptionGreater);
 
-                    comparatorOptionList.appendChild(comparatorOptionNoFilter);
-                    comparatorOptionList.appendChild(comparatorOptionEqual);
-                    comparatorOptionList.appendChild(comparatorOptionNotEqual);
-                    if(tableFields[i][1] === 'int') comparatorOptionList.appendChild(comparatorOptionSmaller);
-                    if(tableFields[i][1] === 'int') comparatorOptionList.appendChild(comparatorOptionGreater);
-                    comparatorOptionList.appendChild(comparatorOptionMatchesRegex);
+            comparator.appendChild(comparatorOptionList);
 
-                    comparator.appendChild(comparatorOptionList);
+            const filter = tableRow.insertCell();
+            const filterValue = document.createElement('input');
+            filterValue.type = 'text';
+            filterValue.name = tableFields[i][0] + 'filterValue';
 
-                    const filter = tableRow.insertCell();
-                    const filterValue = document.createElement('input');
-                    filterValue.type = 'text';
-                    filterValue.name = responseJSON[i][0] + 'filterValue';
-                    filter.appendChild(filterValue);
-                }
+            filter.appendChild(filterValue);
+        }
 
 
-                const applyFiltersButton = document.createElement('input');
-                applyFiltersButton.type = 'submit';
-                applyFiltersButton.classList.add('filter-data-button');
-                applyFiltersButton.value = 'Apply filters';
+        const applyFiltersButton = document.createElement('input');
+        applyFiltersButton.type = 'submit';
+        applyFiltersButton.classList.add('filter-data-button');
+        applyFiltersButton.value = 'Apply filters';
 
-                getFilteredDataForm.appendChild(filterOptionsTable);
-                getFilteredDataForm.append(applyFiltersButton);
+        getFilteredDataForm.appendChild(filterOptionsTable);
+        getFilteredDataForm.append(applyFiltersButton);
 
-            });
 
-        $("#get-filtered-data--form").submit(function(e){
+        $(applyFiltersButton).on('click',  (e) => {
             e.preventDefault();
             $.ajax({
                 url: '/getFilteredTableData',
                 type: 'get',
-                data: $("#get-filtered-data--form").serialize(),
-                success: function(response){
+                data: $(getFilteredDataForm).serialize(),
+                success: function (response) {
                     const filteredDataResponse = JSON.parse(response);
-                    loadData(filteredDataResponse, tabId);
+                    reloadDataFiltered(tableId, filteredDataResponse);
                 }
             });
         });
     }
 
-    function loadAddDataMenu(tabId){
+    function loadAddDataMenu(tableId, tableFields) {
         const addDataForm = document.getElementById('add-data--form');
-        while(addDataForm.firstChild){
-            addDataForm.removeChild(addDataForm.lastChild);
+
+        clearForm(addDataForm);
+
+        const addDataMenuTable = document.createElement('table');
+
+        for (let i = 0; i < tableFields.length; i++) {
+            const fieldName = tableFields[i][2];
+
+            const tableRow = addDataMenuTable.insertRow();
+
+            const tdFieldName = tableRow.insertCell();
+            tdFieldName.appendChild(document.createTextNode(fieldName));
+
+            const tdFieldValue = tableRow.insertCell();
+            const fieldValue = document.createElement('input');
+
+            fieldValue.type = 'text';
+            fieldValue.name = fieldName;
+            tdFieldValue.appendChild(fieldValue);
+
         }
 
-        fetch("/getTableFields?tableId=" + tabId)
-            .then(response => response.json())
-            .then((responseJSON) =>{
-                const tableFields = responseJSON;
-                const addDataMenuTable = document.createElement('table');
+        const addDataButton = document.createElement('input');
 
-                for(let i = 0; i < tableFields.length; i++){
-                    const fieldName = tableFields[i][2];
+        addDataButton.type = 'submit';
+        addDataButton.value = 'Add new data';
+        addDataButton.classList.add('add-data-button');
 
-                    const tableRow = addDataMenuTable.insertRow();
+        addDataForm.appendChild(addDataMenuTable);
+        addDataForm.appendChild(addDataButton);
 
-                    const tdFieldName = tableRow.insertCell();
-                    tdFieldName.appendChild(document.createTextNode(fieldName));
-
-                    const tdFieldValue = tableRow.insertCell();
-                    const fieldValue = document.createElement('input');
-                    fieldValue.type = 'text';
-                    fieldValue.name = fieldName;
-                    tdFieldValue.appendChild(fieldValue);
+        $(addDataButton).on('click', (e) => {
+            e.preventDefault();
+            $.ajax({
+                url: '/addData',
+                type: 'POST',
+                data: $(addDataForm).serialize(),
+                success: function () {
+                    reloadData(tableId);
                 }
-                const addDataButton = document.createElement('input');
-                addDataButton.type='submit';
-                addDataButton.value='Add new data';
-                addDataButton.classList.add('add-data-button');
-
-                const tabIdInput = document.createElement('input');
-                tabIdInput.type='hidden';
-                tabIdInput.name='tableId';
-                tabIdInput.value = tabId;
-
-                addDataForm.appendChild(addDataMenuTable);
-                addDataForm.appendChild(tabIdInput);
-                addDataForm.appendChild(addDataButton);
-
-                $(addDataButton).on('click', (e) =>{
-                    e.preventDefault();
-                    $.ajax({
-                        url: '/addData',
-                        type: 'POST',
-                        data: $(addDataForm).serialize(),
-                        success: function(){
-                            refreshData(tabId);
-                        }
-                    });
-                });
             });
+        });
     }
 
-    function loadData(response, tabId){
+    function loadData(freshData, tabId, tableFields) {
         const dataList = document.getElementById("data-list");
 
-        while(dataList.firstChild){
+        while (dataList.firstChild) {
             dataList.removeChild(dataList.lastChild);
         }
+
         //const responseJSON = JSON.parse(response);
-        const responseJSON = response;
+
         const newTable = document.createElement('table');
         newTable.classList.add('data-table');
 
         newTable.id = 'tableDataList';
-        let tableHeaders;
-        try{
-            tableHeaders = Object.keys(JSON.parse(responseJSON[0][1]));
-        }
-        catch (error){
-            console.log(error);
-            tableHeaders = [];
-        }
+
         const tHeader = newTable.insertRow();
 
-
         //init tableHeaders
-        for(let i = 0; i < tableHeaders.length; i++){
+        for (let i = 0; i < tableFields.length; i++) {
             const td = tHeader.insertCell();
-            td.addEventListener('mouseover', () =>{
-                if(controlPressed){
+
+            td.addEventListener('mouseover', () => {
+                if (controlPressed) {
                     td.style.backgroundColor = 'red';
                 }
             });
-            td.addEventListener('mouseout', () =>{
-                if(!td.classList.contains('to-delete'))
+
+            td.addEventListener('mouseout', () => {
+                if (!td.classList.contains('to-delete'))
                     td.style.backgroundColor = 'transparent';
 
             });
-            td.addEventListener('click', () =>{
 
-                if(controlPressed){
+            td.addEventListener('click', () => {
+
+                if (controlPressed) {
                     const deleteFieldForm = document.getElementById('delete-field--form');
                     td.classList.toggle('to-delete');
 
-                    if(td.classList.contains('to-delete')){
+                    if (td.classList.contains('to-delete')) {
 
                         td.style.backgroundColor = 'red';
                         const fieldName = document.createElement('input');
                         fieldName.type = 'hidden';
-                        fieldName.value = tableHeaders[i];
-                        fieldName.name = tableHeaders[i];
-                        fieldName.id = 'field-' + tableHeaders[i];
-
-                        const tableId = document.createElement('input');
-                        tableId.type='hidden';
-                        tableId.value = tabId;
-                        tableId.name = 'tableId';
+                        fieldName.value = tableFields[i][2];
+                        fieldName.name = tableFields[i][2];
+                        fieldName.id = 'field-' + tableFields[i][2];
 
                         const deleteFieldSubmit = document.createElement('input');
-                        deleteFieldSubmit.type='submit';
+                        deleteFieldSubmit.type = 'submit';
                         deleteFieldSubmit.value = 'Commit field delete';
                         deleteFieldSubmit.id = 'delete-field--submit';
 
-                        if(!deleteFieldForm.contains(document.getElementById('delete-field--submit')))
+                        if (!deleteFieldForm.contains(document.getElementById('delete-field--submit')))
                             deleteFieldForm.appendChild(deleteFieldSubmit);
 
-                        if(!deleteFieldForm.contains(document.getElementsByName('tableId')[0]))
-                            deleteFieldForm.appendChild(tableId);
+                        deleteFieldForm.appendChild(fieldName)
 
-                        deleteFieldForm.appendChild(fieldName);
-                    }
-                    else{
+                    } else {
                         td.style.backgroundColor = 'transparent';
-                        deleteFieldForm.removeChild(deleteFieldForm.querySelector('#field-' + tableHeaders[i]));
-                        if(deleteFieldForm.contains(document.getElementById('delete-field--submit')) && deleteFieldForm.children.length === 2)
+                        deleteFieldForm.removeChild(deleteFieldForm.querySelector('#field-' + tableFields[i][2]));
+                        if (deleteFieldForm.contains(document.getElementById('delete-field--submit')) && deleteFieldForm.children.length === 2)
                             deleteFieldForm.removeChild(deleteFieldForm.querySelector('#delete-field--submit'));
                     }
-                    $("#delete-field--submit").on('click', (e) =>{
+
+                    $(deleteFieldForm).on('click', (e) => {
                         e.preventDefault();
                         $.ajax({
                             type: 'POST',
                             url: '/deleteField',
-                            data: $("#delete-field--form").serialize(),
-                            success: function(){
+                            data: $(deleteFieldForm).serialize(),
+                            success: function () {
                                 //we remove the save button after successful saving
-                                while(deleteFieldForm.firstChild){
-                                    deleteFieldForm.removeChild(deleteFieldForm.lastChild);
-                                }
-                                loadAllContents(tabId);
+                                clearForm(deleteFieldForm);
+
+                                reloadAllContents(tabId);
 
                             }
                         });
@@ -399,76 +411,79 @@
                 }
 
             });
-            td.appendChild(document.createTextNode(tableHeaders[i]));
+            td.appendChild(document.createTextNode(tableFields[i][2]));
         }
 
         //inserting mockup field
         //representing delete button
         const mockupTd = tHeader.insertCell();
 
-        for(let i = 0; i < responseJSON.length; i++){
+        for (let i = 0; i < freshData.length; i++) {
 
             const tRow = newTable.insertRow();
-            tRow.id='datarow-' + responseJSON[i][0];
-            const currentValues = Object.values(JSON.parse(responseJSON[i][1]));
-            for(let j = 0; j < currentValues.length; j++){
+            tRow.id = 'datarow-' + freshData[i][0];
+
+            const currentValues = JSON.parse(freshData[i][1]);
+
+            for (let j = 0; j < tableFields.length; j++) {
+
+                const currentField = tableFields[j][2];
+                const currentValue = currentValues[currentField];
+
                 const td = tRow.insertCell();
-                td.classList.add(responseJSON[i][0]);
-                td.addEventListener("dblclick", () =>{
+                td.classList.add(freshData[i][0]);
+
+                td.addEventListener("dblclick", () => {
                     const inputField = document.createElement('input');
-                    inputField.type='text';
+                    inputField.type = 'text';
                     inputField.value = td.textContent;
                     td.removeChild(td.lastChild);
                     td.appendChild(inputField);
                     inputField.focus();
                 });
 
-                td.addEventListener("keydown", () =>{
-                    if(event.keyCode === 13){
-                        applyChangesToDataList(tableHeaders, tabId);
+                td.addEventListener("keydown", () => {
+                    if (event.keyCode === 13) {
+                        applyChangesToDataList(tableFields, tabId);
                     }
                 });
 
-                td.appendChild(document.createTextNode(currentValues[j]));
+                td.appendChild(document.createTextNode(currentValue));
             }
 
             const deleteButtonTd = tRow.insertCell();
             const deleteButton = document.createElement('button');
-            deleteButton.value = responseJSON[i][0];
+
+            deleteButton.value = freshData[i][0];
             deleteButton.textContent = 'DELETE';
             deleteButton.classList.add('delete-data-button');
-            deleteButton.addEventListener('click', (src) =>{
+
+            deleteButton.addEventListener('click', (src) => {
                 applyDataForDelete(src, tabId);
             });
 
             deleteButtonTd.appendChild(deleteButton);
         }
 
-
-        const newDataRow = newTable.insertRow();
-
-        for(let i = 0; i < tableHeaders.length; i++){
-            const newDataTd = newDataRow.insertCell();
-
-
-        }
-
         dataList.appendChild(newTable);
     }
 
-    function applyChangesToDataList(tableHeaders, tabId){
+    function applyChangesToDataList(tableFields, tabId) {
         const table = document.getElementById("tableDataList");
 
         const modifyDataForm = document.getElementById('modify-data--form');
 
+        clearForm(modifyDataForm);
+
         let rows = table.rows;
 
-        for(let i = 1; i < rows.length; i++){
-            for(let j = 0; j < rows[i].cells.length - 1; j++){
+        for (let i = 1; i < rows.length; i++) {
+            for (let j = 0; j < rows[i].cells.length - 1; j++) {
                 const currentCell = rows[i].cells[j];
-                if(currentCell.lastChild.nodeName !== "#text"){
+                if (currentCell.lastChild.nodeName !== "#text") {
                     let text = currentCell.lastElementChild.value;
                     let textDoc = document.createTextNode(text);
+
                     currentCell.removeChild(currentCell.lastChild);
                     currentCell.appendChild(textDoc);
                 }
@@ -476,110 +491,119 @@
         }
 
         //we arent processing first row (field names row)
-        for(let i = 1; i < rows.length; i++){
-            for(let j = 0; j < rows[i].cells.length; j++){
+        for (let i = 1; i < rows.length; i++) {
+            for (let j = 0; j < rows[i].cells.length - 1; j++) {
                 const currentCell = rows[i].cells[j];
                 const cellValue = document.createElement('input');
+
                 cellValue.type = 'hidden';
                 cellValue.value = currentCell.innerText;
-                cellValue.name = currentCell.className + tableHeaders[j];
+                cellValue.name = currentCell.className + tableFields[j][2];
                 modifyDataForm.appendChild(cellValue);
             }
         }
 
-        const tabIdInput = document.createElement('input');
-        tabIdInput.type = 'hidden';
-        tabIdInput.name = 'tableId';
-        tabIdInput.value = tabId;
-        modifyDataForm.appendChild(tabIdInput);
-
         const saveChangesButton = document.createElement('input');
-        saveChangesButton.type='submit';
-        saveChangesButton.value='Save Changes';
+
+        saveChangesButton.type = 'submit';
+        saveChangesButton.value = 'Save Changes';
         saveChangesButton.classList.add("table-modify-button");
         saveChangesButton.id = 'save-changes-button';
-        if(!modifyDataForm.contains(document.querySelector('#save-changes-button')))
+
+        if (!modifyDataForm.contains(document.querySelector('#save-changes-button')))
             modifyDataForm.appendChild(saveChangesButton);
 
-        $(saveChangesButton).on('click', (e) =>{
+        $(saveChangesButton).on('click', (e) => {
             e.preventDefault();
             $.ajax({
                 type: 'POST',
                 url: '/modifyData',
-                data: $("#modify-data--form").serialize(),
-                success: function(){
-                    //we remove the save button after successful saving
+                data: $(modifyDataForm).serialize(),
+                success: function () {
 
-                    while(modifyDataForm.firstChild){
-                        modifyDataForm.removeChild(modifyDataForm.lastChild);
-                    }
+                    clearForm(modifyDataForm);
+                    reloadData(tabId);
 
-                    refreshData(tabId);
                 }
             });
         });
 
     }
 
-    function applyDataForDelete(src, tabId){
+    function applyDataForDelete(src, tabId) {
+
         const deleteDataForm = document.getElementById('delete-data--form');
         const sourceTarget = src.target;
+
         sourceTarget.classList.toggle('delete-button--active');
+
         const commitDeleteButton = document.createElement('input');
-        commitDeleteButton.type='submit';
-        commitDeleteButton.value='Commit delete';
+
+        commitDeleteButton.type = 'submit';
+        commitDeleteButton.value = 'Commit delete';
         commitDeleteButton.id = 'commit-delete-button';
+
         const currentRow = document.getElementById('datarow-' + sourceTarget.value);
 
-        if(sourceTarget.classList.contains('delete-button--active')){
+        if (sourceTarget.classList.contains('delete-button--active')) {
 
             currentRow.style.backgroundColor = 'red';
             const dataId = document.createElement('input');
-            dataId.type='hidden';
-            dataId.name='dataId-' + sourceTarget.value;
-            dataId.id='dataId-' + sourceTarget.value;
+
+            dataId.type = 'hidden';
+            dataId.name = 'dataId-' + sourceTarget.value;
+            dataId.id = 'dataId-' + sourceTarget.value;
             dataId.value = sourceTarget.value;
+
             deleteDataForm.appendChild(dataId);
-            if(!deleteDataForm.contains(document.querySelector('#commit-delete-button')))
+
+            if (!deleteDataForm.contains(document.querySelector('#commit-delete-button')))
                 deleteDataForm.appendChild(commitDeleteButton);
 
-            $(commitDeleteButton).on('click', (e) =>{
+            $(commitDeleteButton).on('click', (e) => {
                 e.preventDefault();
                 $.ajax({
                     type: 'POST',
                     url: 'deleteData',
                     data: $("#delete-data--form").serialize(),
-                    success: function(){
-                        const deleteDataForm = document.getElementById('delete-data--form');
-                        while(deleteDataForm.firstChild){
-                            deleteDataForm.removeChild(deleteDataForm.lastChild);
-                        }
-                        refreshData(tabId);
+                    success: function () {
+
+                        clearForm(deleteDataForm);
+                        reloadData(tabId);
+
                     }
                 });
             });
-        }
-        else{
+
+        } else {
             currentRow.style.backgroundColor = 'transparent';
             document.getElementById('dataId-' + sourceTarget.value).remove();
-            if(deleteDataForm.contains(document.querySelector('#commit-delete-button')) && deleteDataForm.children.length === 1)
+            if (deleteDataForm.contains(document.querySelector('#commit-delete-button')) && deleteDataForm.children.length === 1)
                 deleteDataForm.removeChild(document.querySelector('#commit-delete-button'));
         }
 
     }
 
-    document.addEventListener('click', (e) =>{
-        if(e.target.className === 'table-manage-button'
+    function clearForm(formToClear) {
+
+        while (formToClear.children.length > 1) {
+            if (formToClear.lastElementChild.name !== 'tableId')
+                formToClear.removeChild(formToClear.lastChild);
+        }
+
+    }
+
+    document.addEventListener('click', (e) => {
+        if (e.target.className === 'table-manage-button'
             || e.target.className === 'data-manage-button'
-            || e.target.classList.contains('table-content--active')){
+            || e.target.classList.contains('table-content--active')) {
 
             const nextElement = e.target.nextElementSibling;
             e.target.classList.toggle('table-content--active');
-            if(e.target.classList.contains('table-content--active')){
+            if (e.target.classList.contains('table-content--active')) {
                 nextElement.style.maxHeight = nextElement.scrollHeight + 'px';
 
-            }
-            else{
+            } else {
                 nextElement.style.maxHeight = 0 + 'px';
             }
         }

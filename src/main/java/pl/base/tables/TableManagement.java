@@ -26,8 +26,7 @@ public class TableManagement {
     private TableDataRepo tableDataRepo;
 
     @Autowired
-    private TablePlacementRepo tablePlacementRepo;
-
+    private TableDetailsRepo tableDetailsRepo;
 
     @Autowired
     private TableDataFilteredImpl tableDataFiltered;
@@ -38,16 +37,8 @@ public class TableManagement {
 
 
 
-    public int getTableX(Long tableId){
-        TablePlacement temp = tablePlacementRepo.findByTableId(tableId);
-
-        return temp.getPageX();
-    }
-
-    public int getTableY(Long tableId){
-        TablePlacement temp = tablePlacementRepo.findByTableId(tableId);
-
-        return temp.getPageY();
+    public TableDetails getTableDetails(Long tableId){
+        return tableDetailsRepo.findByTableId(tableId);
     }
 
     public String getTableName(Long tableId){
@@ -76,6 +67,10 @@ public class TableManagement {
             ));
         }
         return result;
+    }
+
+    public void deleteTable(Long tableId){
+        tableRepo.deleteDatabaseTableByTableId(tableId);
     }
 
     public void modifyJsonData(Long dataId,
@@ -112,7 +107,7 @@ public class TableManagement {
                                      Integer pageX,
                                      Integer pageY){
 
-        tablePlacementRepo.setNewTablePlacement(tableId, pageX, pageY);
+        tableDetailsRepo.setNewTableDetails(tableId, pageX, pageY);
     }
 
     public List<String> newDataErrors(Long tableId, JsonObject toVerify){

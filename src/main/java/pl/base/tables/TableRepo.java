@@ -13,4 +13,7 @@ public interface TableRepo extends JpaRepository<DatabaseTable, Long> {
     public List<DatabaseTable> findByDatabaseId(Long databaseId);
     public DatabaseTable findByTableId(Long tableId);
 
+    @Transactional
+    @Modifying
+    public void deleteDatabaseTableByTableId(Long tableId);
 }

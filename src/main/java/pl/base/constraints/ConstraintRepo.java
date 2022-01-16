@@ -17,7 +17,7 @@ public interface ConstraintRepo extends JpaRepository<FieldConstraint, Long>{
 
     public FieldConstraint findByConstraintId(Long constraintId);
 
-    @Query(nativeQuery = true, value = "SELECT * FROM field_constraints WHERE JSON_EXTRACT(constraint_info_json, '$.type') = 'foreignkey'")
-    public List<FieldConstraint> findAllForeignKeys();
+    @Query(nativeQuery = true, value = "SELECT * FROM field_constraints WHERE JSON_EXTRACT(constraint_info_json, '$.type') = 'foreignkey' AND database_id = ?1")
+    public List<FieldConstraint> findForeignKeysByDatabaseId(Long databaseId);
 
 }

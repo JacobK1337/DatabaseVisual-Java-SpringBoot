@@ -22,6 +22,9 @@ public class FieldConstraint {
     @Column(name = "field_id")
     private Long fieldId;
 
+    @Column(name = "database_id")
+    private Long database_id;
+
     @Column(name = "constraint_info_json")
     private String constraintInfoJson;
 

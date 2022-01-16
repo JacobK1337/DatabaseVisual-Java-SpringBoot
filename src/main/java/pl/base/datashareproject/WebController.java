@@ -19,6 +19,7 @@ import pl.base.fields.FieldManagement;
 import pl.base.fields.TableField;
 import pl.base.tables.DatabaseTable;
 
+import pl.base.tables.TableDetails;
 import pl.base.tables.TableManagement;
 import pl.base.user.UserManagement;
 
@@ -116,24 +117,31 @@ public class WebController {
         return manageDataPage;
     }
 
-    @GetMapping("/tablesXY")
+    @GetMapping("/tableDetails")
     @ResponseBody
-    public String tablesXY(@RequestParam("databaseId") String databaseId){
-        Long dbId = Long.parseLong(databaseId);
+    public String tableDetails(@RequestParam("databaseId") String databaseId){
+        Long databaseIdL = Long.parseLong(databaseId);
 
-        List<List<Integer>> coordinates = new ArrayList<>();
+        List<List<String>> tableDetails = new ArrayList<>();
 
-        for(DatabaseTable dt : tabManagement.getDatabaseTables(dbId)){
-            int pageX = tabManagement.getTableX(dt.getTableId());
-            int pageY = tabManagement.getTableY(dt.getTableId());
-            coordinates.add(Arrays.asList(
-                    Math.toIntExact(dt.getTableId()),
+        for(DatabaseTable dt : tabManagement.getDatabaseTables(databaseIdL)){
+            Long tableId = dt.getTableId();
+
+            TableDetails currentTableDetails = tabManagement.getTableDetails(tableId);
+
+            String tableIdStr = String.valueOf(tableId);
+            String tableName = currentTableDetails.getTableName();
+            String pageX = String.valueOf(currentTableDetails.getPageX());
+            String pageY = String.valueOf(currentTableDetails.getPageY());
+            tableDetails.add(Arrays.asList(
+                    tableIdStr,
+                    tableName,
                     pageX,
                     pageY
             ));
         }
 
-        return new Gson().toJson(coordinates);
+        return new Gson().toJson(tableDetails);
     }
 
     @GetMapping("/getTableName")
@@ -161,8 +169,6 @@ public class WebController {
                     name
             ));
         }
-
-
 
         return new Gson().toJson(fieldInfo);
     }
@@ -210,6 +216,15 @@ public class WebController {
             }
         }
     }
+    @PostMapping("/deleteTable")
+    @ResponseStatus(HttpStatus.OK)
+    @ResponseBody
+    public void deleteTable(@RequestParam("tableId") String tableId){
+
+        Long tableIdL = Long.parseLong(tableId);
+        tabManagement.deleteTable(tableIdL);
+
+    }
 
     @PostMapping("/deleteData")
     @ResponseStatus(value = HttpStatus.OK)
@@ -223,6 +238,7 @@ public class WebController {
                     tabManagement.deleteJsonData(dataId);
                 });
     }
+
     @PostMapping("/addData")
     @ResponseStatus(value = HttpStatus.OK)
     @ResponseBody
@@ -297,11 +313,13 @@ public class WebController {
 
     @GetMapping("/getForeignKeys")
     @ResponseBody
-    public String getForeignKeys(){
-        List<FieldConstraint> foreignKeys = constraintManagement.getAllForeignKeys();
+    public String getForeignKeys(@RequestParam("databaseId") String databaseId){
+
+        Long databaseIdL = Long.parseLong(databaseId);
+
+        List<FieldConstraint> foreignKeys = constraintManagement.getForeignKeysByDatabaseId(databaseIdL);
 
         List<String> response = new ArrayList<>();
-
 
         for(FieldConstraint fc : foreignKeys){
             JsonObject jsonParser = new JsonParser()
@@ -324,6 +342,7 @@ public class WebController {
 
         return new Gson().toJson(response);
     }
+
     public String username(){
         return SecurityContextHolder.getContext().getAuthentication().getName();
     }

@@ -19,7 +19,8 @@
 
 
 <div id="panel-manage-div">
-    <p>SOME SOME SOME</p>
+    <p>Table configuration</p>
+    <table id="table-config-menu"></table>
 </div>
 <div id="usable-panel-area">
     <svg width="100%" height="100%" id="relationSvg"></svg>
@@ -28,7 +29,7 @@
 
 <script>
 
-    class Relation{
+    class Connection{
         constructor(constraintFieldId, linkedFieldId) {
             this.constraintFieldId = constraintFieldId;
             this.linkedFieldId = linkedFieldId;
@@ -45,120 +46,165 @@
     ///////////////////////////////////////
     const dbId = document.getElementById('databaseId').getAttribute('value');
 
-    window.onload = () =>{
-        fetch("/tablesXY?databaseId=" + dbId)
-            .then(response => response.json())
-            .then(responseJSON =>{
 
-                for(let i = 0; i < responseJSON.length; i++){
-                    let tabId = responseJSON[i][0];
-                    let tabX = responseJSON[i][1];
-                    let tabY = responseJSON[i][2]
-
-                    fetch("/getTableName?tableId=" + tabId)
-                        .then(response => response.json())
-                        .then((responseJSON) =>{
-                            drawTable(tabX, tabY, JSON.stringify(responseJSON), tabId);
-                        });
-                }
-            })
-            .then(() =>{
-                reloadRelations();
-            });
+    window.onload = async() =>{
+        await drawAllTables(dbId);
+        await drawAndSaveForeignKeys(dbId);
     }
 
-    function drawTable(x, y, name, tabId){
+    async function fetchForeignKeys(){
+        let response = await fetch("/getForeignKeys?databaseId=" + dbId);
+        return await response.json();
+    }
+
+    async function fetchTableDetails(databaseId){
+        let response = await fetch("/tableDetails?databaseId=" + databaseId);
+        return await response.json();
+    }
+
+    async function fetchTableFields(tableId){
+
+        let response = await fetch("/getTableFields?tableId=" + tableId);
+        return await response.json();
+
+    }
+    async function drawAllTables(databaseId){
+        const tableDetails = await fetchTableDetails(databaseId);
+
+        for(let i = 0; i < tableDetails.length; i++){
+            let tableId = tableDetails[i][0];
+            let tableName = tableDetails[i][1];
+            let pageX = tableDetails[i][2];
+            let pageY = tableDetails[i][3];
+
+           await drawTable(pageX, pageY, tableName, tableId);
+        }
+
+    }
+
+    let relationList = [];
+    async function drawAndSaveForeignKeys(databaseId){
+        const foreignKeys = await fetchForeignKeys(databaseId);
+
+        for(let i = 0; i < foreignKeys.length; i++){
+
+            const currentConnection = JSON.parse(foreignKeys[i]);
+            const currentConnectionValues = Object.values(currentConnection);
+
+            const constraintFieldId = currentConnectionValues[0];
+            const linkedFieldId = currentConnectionValues[1];
+            const fieldName = currentConnectionValues[2];
+
+            relationList.push(new Connection(constraintFieldId, linkedFieldId));
+
+            const newLine = document.createElementNS('http://www.w3.org/2000/svg','line');
+
+            newLine.setAttribute('stroke', 'red');
+            newLine.setAttribute('visibility', 'visible');
+            newLine.setAttribute('stroke-width', '2');
+            newLine.id = constraintFieldId + '-' + linkedFieldId;
+
+            const newLineLabel = document.createElementNS('http://www.w3.org/2000/svg','text');
+            newLineLabel.appendChild(document.createTextNode(fieldName));
+
+            newLineLabel.id = 'label--' + newLine.id;
+
+            document.getElementById('relationSvg').appendChild(newLineLabel);
+            document.getElementById('relationSvg').appendChild(newLine);
+        }
+
+        redrawRelations(relationList);
+
+    }
+
+    async function drawTable(x, y, name, tabId){
         let newTable = document.createElement('div');
         newTable.classList.add('table');
         newTable.style.top = y + 'px';
         newTable.style.left = x + 'px';
         newTable.id = tabId;
         newTable.insertAdjacentHTML('beforeend', "<p>" + name + "</p>");
-        fetch("/getTableFields?tableId=" + tabId)
-            .then(response => response.json())
-            .then((responseJSON) =>{
 
-                for(let i = 0; i < responseJSON.length; i++){
+        const tableFields = await fetchTableFields(tabId);
 
-                    const tableField = document.createElement('p');
-                    tableField.appendChild(document.createTextNode(responseJSON[i][1] + ": " + responseJSON[i][2]));
-                    tableField.id = 'tf' + responseJSON[i][0];
-                    newTable.appendChild(tableField);
-                    //newTable.insertAdjacentHTML('beforeend', "<p>" + responseJSON[i][1] + ": " + responseJSON[i][2] + "</p>");
-                }
-            })
-            .then(() =>{
-                let manageDataButton = document.createElement('button');
-                manageDataButton.textContent = 'Mange data';
-                manageDataButton.classList.toggle('manage-data-button');
-                manageDataButton.addEventListener('click', () =>{
-                    window.open('http://localhost:8080/manage_data?tableId=' + tabId, 'Manage data window');
-                });
+        for(let i = 0; i < tableFields.length ;i++){
+            const tableFieldElement = document.createElement('p');
+            tableFieldElement.appendChild(document.createTextNode(tableFields[i][1] + ": " + tableFields[i][2]));
 
-                newTable.appendChild(manageDataButton);
+            tableFieldElement.id = 'tf' + tableFields[i][0];
+            newTable.appendChild(tableFieldElement);
+        }
 
-                document.getElementById('usable-panel-area').appendChild(newTable);
-                //document.body.appendChild(newTable);
+        const lineBreak = document.createElement('br');
 
-                //functions updates tables menu by adding current table options
-                updateTableManageMenu(tabId, name);
+        let configButton = initConfigButton(tabId);
+        let deleteButton = initDeleteButton(tabId);
 
-                //make the table draggable ;)
-                const currentTable = $('#' + tabId);
-                currentTable.appendTo("body");
-                currentTable.draggable({
-                    containment: '#usable-panel-area',
-                    drag: () =>{
-                        redrawRelations(relationList);
-                    },
-                    stop: (event, ui) =>{
-                        let tableId = event.target.id;
-                        let newTop = event.target.style.top;
-                        let newLeft = event.target.style.left;
-                        saveTableLocation(tableId, newTop, newLeft);
-                    }
+        newTable.appendChild(configButton);
+        newTable.appendChild(lineBreak);
 
-                });
-            });
+        newTable.appendChild(deleteButton);
+        newTable.appendChild(lineBreak);
 
 
+        document.getElementById('usable-panel-area').appendChild(newTable);
+        //document.body.appendChild(newTable);
 
+        //functions updates tables menu by adding current table options
+        //updateTableManageMenu(tabId, name);
+
+        //make the table draggable ;)
+        const currentTable = $('#' + tabId);
+        currentTable.appendTo("body");
+        currentTable.draggable({
+            containment: '#usable-panel-area',
+            drag: () =>{
+                redrawRelations(relationList);
+            },
+            stop: (event, ui) =>{
+                let tableId = event.target.id;
+                let newTop = event.target.style.top;
+                let newLeft = event.target.style.left;
+                saveTableLocation(tableId, newTop, newLeft);
+            }
+
+        });
 
     }
 
-    let relationList = [];
-    function reloadRelations(){
-        fetch("/getForeignKeys")
-            .then(response => response.json())
-            .then((responseJSON) =>{
-               for(let i = 0; i < responseJSON.length; i++){
+    function initConfigButton(tableId){
 
-                   const currentRelation = JSON.parse(responseJSON[i]);
-                   const currentRelationValues = Object.values(currentRelation);
+        let configButton = document.createElement('button');
+        configButton.textContent = 'Manage table';
+        configButton.classList.toggle('config-table-button');
+        configButton.addEventListener('click', () =>{
+            window.open('http://localhost:8080/manage_data?tableId=' + tableId, 'Manage data window');
+        });
 
-                   const constraintFieldId = currentRelationValues[0];
-                   const linkedFieldId = currentRelationValues[1];
-                   const fieldName = currentRelationValues[2];
+        return configButton;
+    }
 
-                   relationList.push(new Relation(constraintFieldId, linkedFieldId));
-                   const newLine = document.createElementNS('http://www.w3.org/2000/svg','line');
-                   newLine.setAttribute('stroke', 'red');
-                   newLine.setAttribute('visibility', 'visible');
-                   newLine.setAttribute('stroke-width', '2');
-                   newLine.id = constraintFieldId + '-' + linkedFieldId;
+    function initDeleteButton(tableId){
 
-                   const newLineLabel = document.createElementNS('http://www.w3.org/2000/svg','text');
-                   newLineLabel.appendChild(document.createTextNode(fieldName));
-                   newLineLabel.id = 'label--' + newLine.id;
+        let deleteButton = document.createElement('button');
+        deleteButton.textContent = 'Delete table';
+        deleteButton.classList.toggle('delete-table-button');
 
-                   document.getElementById('relationSvg').appendChild(newLineLabel);
-                   document.getElementById('relationSvg').appendChild(newLine);
-               }
+        deleteButton.addEventListener('click', () =>{
 
-                redrawRelations(relationList);
+            $.ajax({
+               type: 'post',
+                url: '/deleteTable',
+                data:{
+                   'tableId' : tableId
+                },
+                success: () =>{
+
+                }
             });
+        });
 
-
+        return deleteButton;
     }
 
     function saveTableLocation(tableId, top, left) {
@@ -179,7 +225,6 @@
 
     }
 
-
     function redrawRelations(relList){
         for(let i = 0; i < relList.length; i++){
             const constraintFieldId = relList[i].fieldId;
@@ -191,10 +236,10 @@
             const currentLine = document.getElementById(constraintFieldId + '-' + linkedFieldId);
             const currentLineLabel = document.getElementById('label--' + currentLine.id);
             const fOx1 = fieldOne.offset().left + fieldOne.width()/2;
-            const fOy1 = fieldOne.offset().top - fieldOne.height();
+            const fOy1 = fieldOne.offset().top; //- fieldOne.height()/2;
 
             const fOx2 = fieldTwo.offset().left  + fieldTwo.width()/2;
-            const fOy2 = fieldTwo.offset().top  - fieldTwo.height();
+            const fOy2 = fieldTwo.offset().top;  //- fieldTwo.height()/2;
 
             $(currentLine)
                 .attr('x1', fOx1)
@@ -208,60 +253,6 @@
 
         }
     }
-
-function updateTableManageMenu(tabId, tabName){
-
-    let tabNaviContent = document.createElement('div');
-    tabNaviContent.classList.add('table-content');
-
-    let modifyFieldsButton = document.createElement('button');
-    let modifyStyleButton = document.createElement('button');
-    let getDataButton = document.createElement('button');
-    let modifyDataButton = document.createElement('button');
-
-
-    modifyFieldsButton.classList.add('table-modify-button');
-    modifyStyleButton.classList.add('table-modify-button');
-    getDataButton.classList.add('table-modify-button');
-    modifyDataButton.classList.add('table-modify-button');
-
-    modifyFieldsButton.value = tabId;
-    modifyStyleButton.value = tabId;
-    getDataButton.value = tabId;
-    modifyDataButton.value = tabId;
-
-    modifyFieldsButton.textContent = "Modify fields";
-    modifyStyleButton.textContent = "Modify style";
-    getDataButton.textContent = "List data";
-    modifyDataButton.textContent = "Modify data"
-
-    modifyFieldsButton.addEventListener('click', () =>{
-
-    });
-
-    modifyStyleButton.addEventListener('click', () =>{
-
-    });
-
-
-    getDataButton.addEventListener('click', () =>{
-
-    });
-
-
-
-    tabNaviContent.appendChild(modifyFieldsButton);
-    tabNaviContent.appendChild(modifyStyleButton);
-    tabNaviContent.appendChild(getDataButton);
-    tabNaviContent.appendChild(modifyDataButton);
-
-    ////////////////////////////////
-
-    const panelManage = $("#panel-manage-div");
-    panelManage.append("<button class='table-manage-button'>" + tabName + "</button>")
-    panelManage.append(tabNaviContent);
-}
-
 
     document.addEventListener('click', (e) =>{
         if(e.target.className === 'table-manage-button'
