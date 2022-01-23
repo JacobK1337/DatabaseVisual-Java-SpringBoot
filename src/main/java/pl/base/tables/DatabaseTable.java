@@ -23,7 +23,5 @@ public class DatabaseTable {
     @Column(name = "database_id")
     private Long databaseId;
 
-    @Column(name = "table_name")
-    private String tableName;
 
 }

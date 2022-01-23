@@ -4,10 +4,13 @@ package pl.base.fields;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import pl.base.tables.TableDataRepo;
+import pl.base.tables.TableRepo;
 
 
 @Component
 public class FieldManagement {
+    @Autowired
+    private TableRepo tableRepo;
 
     @Autowired
     private FieldRepo fieldRepo;
@@ -19,12 +22,24 @@ public class FieldManagement {
         return fieldRepo.findByFieldId(fieldId);
     }
 
-
     public void deleteFieldByName(String fieldName, Long tableId){
         fieldRepo.deleteFieldByFieldName(fieldName, tableId);
 
         eraseFieldFromAll(fieldName, tableId);
     }
+    public void setAsPrimaryKey(Long fieldId){
+        fieldRepo.setFieldAsPrimaryKey(fieldId);
+    }
+    public void setAsForeignKey(Long fieldId){fieldRepo.setFieldAsForeignKey(fieldId);}
+
+    public void setAsNotForeignKey(Long fieldId){fieldRepo.setFieldAsNotForeignKey(fieldId);}
+
+    public void setAsUnique(Long fieldId){fieldRepo.setAsUnique(fieldId);}
+    public void setAsNotUnique(Long fieldId){fieldRepo.setAsNotUnique(fieldId);}
+
+    public void setAsNotNullable(Long fieldId){fieldRepo.setAsNotNullable(fieldId);}
+
+    public void setAsNullable(Long fieldId){fieldRepo.setAsNullable(fieldId);}
 
     public void addNewField(Long tableId,
                             String fieldName,
@@ -54,7 +69,9 @@ public class FieldManagement {
                     type,
                     nullable,
                     unique,
-                    defaultVal
+                    defaultVal,
+                    false,
+                    false
             );
 
             fieldRepo.save(newField);

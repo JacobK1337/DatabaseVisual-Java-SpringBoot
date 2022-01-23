@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.OnDelete;
 
 import javax.persistence.*;
 
@@ -33,8 +32,14 @@ public class TableField {
     private boolean nullable;
 
     @Column(name = "unique_value")
-    private boolean unique;
+    private boolean isUnique;
 
     @Column(name = "default_value")
     private String defaultValue;
+
+    @Column(name = "is_primary_key")
+    private boolean isPrimaryKey;
+
+    @Column(name = "is_foreign_key")
+    private boolean isForeignKey;
 }

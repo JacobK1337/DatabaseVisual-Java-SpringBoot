@@ -31,9 +31,10 @@
     </div>
 
     <button class="data-manage-button">Field constraints</button>
-    <div class="data-manage-content">
-        <form th:action="@{/addConstraint}" method="post" id="add-constr--form">
+    <div class="data-manage-content" id="field-constr-content">
+        <form th:action="@{/updateConstraints}" method="post" id="field-constr--form">
             <input type="hidden" th:value="${tableId}" name="tableId">
+            <input type="hidden" th:value="${databaseId}" name="databaseId" id = 'databaseId'>
         </form>
     </div>
 
@@ -68,14 +69,27 @@
             </p>
 
             <p>
-                <input type="submit" value="Add new field" id="new-field-submit">
+                <input type="submit" value="Add new field" id="new-field-submit" class="table-config--submit">
             </p>
 
         </form>
     </div>
     <button class="data-manage-button">Style</button>
     <div class="data-manage-content">
+        <form th:action="@{/modifyStyle}" method="post" id="modify-style--form">
+            <input type="hidden" th:value="${tableId}" name="tableId">
+            <label for="style-table-color">Choose color of the table</label>
 
+            <select id="style-table-color" name="tableStyleColor">
+                <option>papayawhip</option>
+                <option>blue</option>
+                <option>violet</option>
+                <option>green</option>
+            </select>
+            <br>
+
+            <input type="submit" value="Apply style changes" class="table-config--submit" id="modify-style--submit">
+        </form>
     </div>
 
     <div id="data-results">
@@ -99,8 +113,15 @@
 </div>
 
 <script>
-    const tableId = document.getElementById('tableId').value;
 
+    const tableId = document.getElementById('tableId').value;
+    const dbId = document.getElementById('databaseId').value;
+
+    const constraintNameMapping = new Map([
+        [1, 'Foreign Key'],
+        [2, 'Can be null'],
+        [3, 'Unique']
+    ]);
 
     $("#new-field-submit").on('click', (e) => {
         e.preventDefault();
@@ -111,6 +132,18 @@
             success: function () {
                 //we remove the save button after successful saving
                 reloadAllContents(tableId);
+            }
+        });
+    });
+
+    $("#modify-style--submit").on('click', (e) => {
+        e.preventDefault();
+        $.ajax({
+            type: 'POST',
+            url: '/updateStyle',
+            data: $("#modify-style--form").serialize(),
+            success: function () {
+                //we remove the save button after successful saving
             }
         });
     });
@@ -132,7 +165,7 @@
     });
 
     window.onload = async () => {
-        reloadAllContents(tableId);
+        reloadAllContents(tableId, dbId);
     }
 
     async function fetchTableFields(tableId) {
@@ -149,10 +182,24 @@
 
     }
 
-    function reloadAllContents(tableId) {
+    async function fetchPrimaryKeys(databaseId){
+        let response = await fetch("/getPrimaryKeys?databaseId=" + databaseId);
+        return await response.json();
+    }
+
+    function reloadAllContents(tableId, databaseId) {
         reloadFilterMenu(tableId);
+        reloadConstraintMenu(tableId, databaseId);
         reloadAddDataMenu(tableId);
         reloadData(tableId);
+
+    }
+
+
+    async function reloadConstraintMenu(tableId, databaseId){
+        const tableFields = await fetchTableFields(tableId);
+        const primaryKeys = await fetchPrimaryKeys(databaseId);
+        loadConstraintMenu(tableId, tableFields, primaryKeys);
     }
 
     async function reloadData(tableId) {
@@ -175,8 +222,134 @@
 
     async function reloadAddDataMenu(tableId) {
         const tableFields = await fetchTableFields(tableId);
-
         loadAddDataMenu(tableId, tableFields);
+    }
+
+    function loadConstraintMenu(tableId, tableFields, primaryKeys){
+        const fieldConstrForm = document.getElementById('field-constr--form');
+
+        const NUM_OF_DEF_CONSTR = constraintNameMapping.size;
+
+        clearForm(fieldConstrForm);
+
+        const constrMenuTable = document.createElement('table');
+        constrMenuTable.classList.add('constr-table');
+
+        const constrMenuTableHeaders = constrMenuTable.insertRow();
+
+        for(let i = 0; i <= NUM_OF_DEF_CONSTR; i++){
+            const headersCell = constrMenuTableHeaders.insertCell();
+            let cellTextContent;
+
+            if(i === 0)
+                cellTextContent = 'Field name';
+
+            else
+                cellTextContent = constraintNameMapping.get(i);
+
+            headersCell.appendChild(document.createTextNode(cellTextContent));
+        }
+
+
+        for(let i = 0; i < tableFields.length; i++){
+            const fieldConstrRow = constrMenuTable.insertRow();
+            const fieldId = tableFields[i][0];
+            const fieldName = tableFields[i][2];
+            const isNullable = tableFields[i][3];
+            const isUnique = tableFields[i][4];
+            const isPrimaryKey = tableFields[i][5];
+            const isForeignKey = tableFields[i][6];
+
+            for(let j = 0; j <= NUM_OF_DEF_CONSTR; j++){
+                const fieldConstrCell = fieldConstrRow.insertCell();
+
+                if(j === 0)
+                    fieldConstrCell.appendChild(document.createTextNode(fieldName)); // name
+
+                else{
+                    const constrName = constraintNameMapping.get(j);
+
+                    switch(constrName){
+                        case 'Unique':
+                            const uniqueCheckButton = document.createElement('input');
+                            uniqueCheckButton.type = 'checkbox';
+                            uniqueCheckButton.id = 'uniq-checkbutton-' + fieldId;
+                            uniqueCheckButton.name = 'isUnique' + fieldId;
+                            if(isUnique === 'true')
+                                uniqueCheckButton.checked = true;
+
+                            if(isPrimaryKey === 'true')
+                                uniqueCheckButton.disabled = true;
+
+                            fieldConstrCell.appendChild(uniqueCheckButton);
+                            break;
+
+
+                        case 'Can be null':
+                            const nullCheckButton = document.createElement('input');
+                            nullCheckButton.type = 'checkbox';
+                            nullCheckButton.id = 'null-checkbutton-' + fieldId;
+                            nullCheckButton.name = 'isNullable' + fieldId;
+                            if(isNullable === 'true')
+                                nullCheckButton.checked = true;
+
+                            if(isPrimaryKey === 'true')
+                                nullCheckButton.disabled = true;
+                            fieldConstrCell.appendChild(nullCheckButton);
+                            break;
+
+
+
+                        case 'Foreign Key':
+                            const fkSelect = document.createElement('select');
+                            fkSelect.id = 'fk-select-' + fieldId;
+                            fkSelect.name = 'isForeignKey' + fieldId;
+                            const fkDefaultOption = document.createElement('option');
+                            fkDefaultOption.value = 'None';
+                            fkDefaultOption.appendChild(document.createTextNode('None'));
+                            fkSelect.appendChild(fkDefaultOption);
+
+                            for(let k = 0; k < primaryKeys.length; k++){
+                                const fkOption = document.createElement('option');
+                                const primaryKeyDescription = JSON.parse(primaryKeys[k]);
+
+                                const primaryKeyFieldId = primaryKeyDescription['fieldId'];
+                                const primaryKeyName = primaryKeyDescription['fieldName'];
+                                const primaryKeyTableName = primaryKeyDescription['tableName'];
+                                const primaryKeyTableId = primaryKeyDescription['tableId'];
+
+                                fkOption.value = primaryKeyFieldId;
+                                fkOption.appendChild(document.createTextNode(primaryKeyName + ' (' + primaryKeyTableName + ')'));
+                                if(primaryKeyTableId !== tableId)
+                                    fkSelect.appendChild(fkOption);
+                            }
+
+                            fieldConstrCell.appendChild(fkSelect);
+                            break;
+                    }
+                }
+
+
+            }
+
+        }
+
+        const fieldConstrSubmit = document.createElement('input');
+        fieldConstrSubmit.type = 'submit';
+        fieldConstrForm.appendChild(constrMenuTable);
+        fieldConstrForm.appendChild(fieldConstrSubmit);
+
+        $(fieldConstrSubmit).on('click', (e) => {
+            e.preventDefault();
+            $.ajax({
+                type: 'POST',
+                url: '/updateConstraints',
+                data: $(fieldConstrForm).serialize(),
+                success: function () {
+                    alert("Constraints saved!");
+                }
+            });
+        });
     }
 
     function loadFilterMenu(tableId, tableFields) {
@@ -186,26 +359,20 @@
         clearForm(getFilteredDataForm);
 
         const filterOptionsTable = document.createElement('table');
-        filterOptionsTable.classList.add('data-table');
+        filterOptionsTable.classList.add('filter-table');
+
+        const filterColumnNames = new Map([
+           [0, 'Column'],
+           [1, 'Comparator'],
+            [2, 'Filter']
+        ]);
 
         const filterTableHeader = filterOptionsTable.insertRow();
 
         for (let i = 0; i < 3; i++) {
 
             const td = filterTableHeader.insertCell();
-            let columnName;
-
-            switch (i) {
-                case 0:
-                    columnName = 'Column';
-                    break;
-                case 1:
-                    columnName = 'Comparator';
-                    break;
-                case 2:
-                    columnName = 'Filter';
-                    break;
-            }
+            const columnName = filterColumnNames.get(i);
 
             td.appendChild(document.createTextNode(columnName));
 
@@ -261,7 +428,7 @@
 
         const applyFiltersButton = document.createElement('input');
         applyFiltersButton.type = 'submit';
-        applyFiltersButton.classList.add('filter-data-button');
+        applyFiltersButton.classList.add('table-config--submit');
         applyFiltersButton.value = 'Apply filters';
 
         getFilteredDataForm.appendChild(filterOptionsTable);
@@ -310,7 +477,7 @@
 
         addDataButton.type = 'submit';
         addDataButton.value = 'Add new data';
-        addDataButton.classList.add('add-data-button');
+        addDataButton.classList.add('table-config--submit');
 
         addDataForm.appendChild(addDataMenuTable);
         addDataForm.appendChild(addDataButton);
@@ -348,70 +515,77 @@
         for (let i = 0; i < tableFields.length; i++) {
             const td = tHeader.insertCell();
 
-            td.addEventListener('mouseover', () => {
-                if (controlPressed) {
-                    td.style.backgroundColor = 'red';
-                }
-            });
+            if(tableFields[i][5] === 'false'){
 
-            td.addEventListener('mouseout', () => {
-                if (!td.classList.contains('to-delete'))
-                    td.style.backgroundColor = 'transparent';
-
-            });
-
-            td.addEventListener('click', () => {
-
-                if (controlPressed) {
-                    const deleteFieldForm = document.getElementById('delete-field--form');
-                    td.classList.toggle('to-delete');
-
-                    if (td.classList.contains('to-delete')) {
-
+                td.addEventListener('mouseover', () => {
+                    if (controlPressed) {
                         td.style.backgroundColor = 'red';
-                        const fieldName = document.createElement('input');
-                        fieldName.type = 'hidden';
-                        fieldName.value = tableFields[i][2];
-                        fieldName.name = tableFields[i][2];
-                        fieldName.id = 'field-' + tableFields[i][2];
-
-                        const deleteFieldSubmit = document.createElement('input');
-                        deleteFieldSubmit.type = 'submit';
-                        deleteFieldSubmit.value = 'Commit field delete';
-                        deleteFieldSubmit.id = 'delete-field--submit';
-
-                        if (!deleteFieldForm.contains(document.getElementById('delete-field--submit')))
-                            deleteFieldForm.appendChild(deleteFieldSubmit);
-
-                        deleteFieldForm.appendChild(fieldName)
-
-                    } else {
-                        td.style.backgroundColor = 'transparent';
-                        deleteFieldForm.removeChild(deleteFieldForm.querySelector('#field-' + tableFields[i][2]));
-                        if (deleteFieldForm.contains(document.getElementById('delete-field--submit')) && deleteFieldForm.children.length === 2)
-                            deleteFieldForm.removeChild(deleteFieldForm.querySelector('#delete-field--submit'));
                     }
+                });
 
-                    $(deleteFieldForm).on('click', (e) => {
-                        e.preventDefault();
-                        $.ajax({
-                            type: 'POST',
-                            url: '/deleteField',
-                            data: $(deleteFieldForm).serialize(),
-                            success: function () {
-                                //we remove the save button after successful saving
-                                clearForm(deleteFieldForm);
+                td.addEventListener('mouseout', () => {
+                    if (!td.classList.contains('to-delete'))
+                        td.style.backgroundColor = 'transparent';
 
-                                reloadAllContents(tabId);
+                });
 
-                            }
+                td.addEventListener('click', () => {
+
+                    if (controlPressed) {
+                        const deleteFieldForm = document.getElementById('delete-field--form');
+                        td.classList.toggle('to-delete');
+
+                        if (td.classList.contains('to-delete')) {
+
+                            td.style.backgroundColor = 'red';
+                            const fieldName = document.createElement('input');
+                            fieldName.type = 'hidden';
+                            fieldName.value = tableFields[i][2];
+                            fieldName.name = tableFields[i][2];
+                            fieldName.id = 'field-' + tableFields[i][2];
+
+                            const deleteFieldSubmit = document.createElement('input');
+                            deleteFieldSubmit.type = 'submit';
+                            deleteFieldSubmit.value = 'Commit field delete';
+                            deleteFieldSubmit.id = 'delete-field--submit';
+
+                            if (!deleteFieldForm.contains(document.querySelector('#delete-field--submit')))
+                                deleteFieldForm.appendChild(deleteFieldSubmit);
+
+                            deleteFieldForm.appendChild(fieldName)
+
+                        } else {
+                            td.style.backgroundColor = 'transparent';
+                            deleteFieldForm.removeChild(deleteFieldForm.querySelector('#field-' + tableFields[i][2]));
+                            if (deleteFieldForm.contains(deleteFieldForm.querySelector('#delete-field--submit')) && deleteFieldForm.children.length === 2)
+                                deleteFieldForm.removeChild(deleteFieldForm.querySelector('#delete-field--submit'));
+                        }
+
+                        $(deleteFieldForm).on('click', (e) => {
+                            e.preventDefault();
+                            $.ajax({
+                                type: 'POST',
+                                url: '/deleteField',
+                                data: $(deleteFieldForm).serialize(),
+                                success: function () {
+                                    //we remove the save button after successful saving
+                                    clearForm(deleteFieldForm);
+                                    reloadAllContents(tabId);
+
+                                }
+                            });
                         });
-                    });
 
-                }
+                    }
+                });
+            }
 
-            });
-            td.appendChild(document.createTextNode(tableFields[i][2]));
+            const tableFieldName = document.createTextNode(tableFields[i][2]);
+
+            if(tableFields[i][5] === 'true')
+                td.style.color = 'gold';
+            td.appendChild(tableFieldName);
+
         }
 
         //inserting mockup field
@@ -507,7 +681,7 @@
 
         saveChangesButton.type = 'submit';
         saveChangesButton.value = 'Save Changes';
-        saveChangesButton.classList.add("table-modify-button");
+        saveChangesButton.classList.add("table-config--submit")
         saveChangesButton.id = 'save-changes-button';
 
         if (!modifyDataForm.contains(document.querySelector('#save-changes-button')))
@@ -541,7 +715,7 @@
 
         commitDeleteButton.type = 'submit';
         commitDeleteButton.value = 'Commit delete';
-        commitDeleteButton.id = 'commit-delete-button';
+        commitDeleteButton.id = 'commit-delete--submit';
 
         const currentRow = document.getElementById('datarow-' + sourceTarget.value);
 
@@ -557,7 +731,7 @@
 
             deleteDataForm.appendChild(dataId);
 
-            if (!deleteDataForm.contains(document.querySelector('#commit-delete-button')))
+            if(!deleteDataForm.contains(document.querySelector('#commit-delete--submit')))
                 deleteDataForm.appendChild(commitDeleteButton);
 
             $(commitDeleteButton).on('click', (e) => {
@@ -565,7 +739,7 @@
                 $.ajax({
                     type: 'POST',
                     url: 'deleteData',
-                    data: $("#delete-data--form").serialize(),
+                    data: $(deleteDataForm).serialize(),
                     success: function () {
 
                         clearForm(deleteDataForm);
@@ -575,19 +749,21 @@
                 });
             });
 
-        } else {
+        }
+        else {
             currentRow.style.backgroundColor = 'transparent';
             document.getElementById('dataId-' + sourceTarget.value).remove();
-            if (deleteDataForm.contains(document.querySelector('#commit-delete-button')) && deleteDataForm.children.length === 1)
-                deleteDataForm.removeChild(document.querySelector('#commit-delete-button'));
+            if (deleteDataForm.contains(deleteDataForm.querySelector('#commit-delete--submit')) && deleteDataForm.children.length === 2)
+                deleteDataForm.removeChild(deleteDataForm.querySelector('#commit-delete--submit'));
         }
 
     }
 
     function clearForm(formToClear) {
 
-        while (formToClear.children.length > 1) {
-            if (formToClear.lastElementChild.name !== 'tableId')
+        while (formToClear.lastElementChild.name !== 'tableId'
+        && formToClear.lastElementChild.name !== 'databaseId') {
+
                 formToClear.removeChild(formToClear.lastChild);
         }
 

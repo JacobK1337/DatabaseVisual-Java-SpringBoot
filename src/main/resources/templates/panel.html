@@ -6,22 +6,57 @@
     <link th:href="@{css/styles.css}" rel="stylesheet" type="text/css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300&family=Exo:wght@200&family=Lato:wght@300&family=Overpass:wght@200&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300&family=Exo:wght@200&family=Lato:wght@300&family=Overpass:wght@200&display=swap"
+          rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.js"></script>
     <script src="https://code.jquery.com/ui/1.13.0/jquery-ui.js"></script>
 
 </head>
 <body>
-<input type="hidden" th:value="${databaseId}" id="databaseId">
 
 
 
+<div id="panel-manage--div">
+    <p>Database Visualization</p>
+    <form th:action="@{/createNewTable}" method="post">
+        <input type="hidden" th:value="${databaseId}" id="databaseId" name="databaseId">
+        <table style="border-spacing: 50px">
+            <tr>
+                <td>
+                    <label for="new-table-name">New table name: </label>
+                </td>
+                <td>
+                    <input type="text" id="new-table-name" name="tableName">
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <label for="new-table-pk-name">Primary key name: </label>
+                </td>
+                <td>
+                    <input type="text" id="new-table-pk-name" name="primaryKeyName">
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <label for="new-table-pk-type">Primary key type:</label>
+                </td>
+                <td>
+                    <select id="new-table-pk-type" name="primaryKeyType">
+                        <option value="int">Integer</option>
+                        <option value="varchar">Varchar</option>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td><input type="submit" value="Create new table"></td>
+                <td></td>
+            </tr>
+        </table>
 
-
-<div id="panel-manage-div">
-    <p>Table configuration</p>
-    <table id="table-config-menu"></table>
+    </form>
 </div>
+
 <div id="usable-panel-area">
     <svg width="100%" height="100%" id="relationSvg"></svg>
 </div>
@@ -29,15 +64,17 @@
 
 <script>
 
-    class Connection{
+    class Connection {
         constructor(constraintFieldId, linkedFieldId) {
             this.constraintFieldId = constraintFieldId;
             this.linkedFieldId = linkedFieldId;
         }
-        get fieldId(){
+
+        get fieldId() {
             return this.constraintFieldId;
         }
-        get linkFieldId(){
+
+        get linkFieldId() {
             return this.linkedFieldId;
         }
     }
@@ -46,47 +83,78 @@
     ///////////////////////////////////////
     const dbId = document.getElementById('databaseId').getAttribute('value');
 
+    const variableColorMapping = new Map([
+        ['int', 'darkorange'],
+        ['varchar', 'darkblue']
+    ]);
 
-    window.onload = async() =>{
+
+    window.onload = async () => {
         await drawAllTables(dbId);
         await drawAndSaveForeignKeys(dbId);
     }
 
-    async function fetchForeignKeys(){
+    async function fetchPrimaryKeys() {
+        let response = await fetch("/getPrimaryKeys?databaseId=" + dbId);
+        return await response.json();
+    }
+
+    async function fetchForeignKeys() {
         let response = await fetch("/getForeignKeys?databaseId=" + dbId);
         return await response.json();
     }
 
-    async function fetchTableDetails(databaseId){
+    async function fetchTableDetails(databaseId) {
         let response = await fetch("/tableDetails?databaseId=" + databaseId);
         return await response.json();
     }
 
-    async function fetchTableFields(tableId){
+    async function fetchTableFields(tableId) {
 
         let response = await fetch("/getTableFields?tableId=" + tableId);
         return await response.json();
 
     }
-    async function drawAllTables(databaseId){
+
+    async function drawAllTables(databaseId) {
         const tableDetails = await fetchTableDetails(databaseId);
 
-        for(let i = 0; i < tableDetails.length; i++){
+        for (let i = 0; i < tableDetails.length; i++) {
             let tableId = tableDetails[i][0];
             let tableName = tableDetails[i][1];
             let pageX = tableDetails[i][2];
             let pageY = tableDetails[i][3];
+            let color = tableDetails[i][4];
+            await drawTable(pageX, pageY, tableName, tableId, color);
+        }
 
-           await drawTable(pageX, pageY, tableName, tableId);
+        await printPrimaryKeys(databaseId);
+    }
+
+    async function printPrimaryKeys(databaseId) {
+        const primaryKeys = await fetchPrimaryKeys(databaseId);
+
+        for (let i = 0; i < primaryKeys.length; i++) {
+            const currPrimaryKey = JSON.parse(primaryKeys[i]);
+            const primaryKeyId = currPrimaryKey['fieldId'];
+
+            const primaryKeyField = document.getElementById('tf' + primaryKeyId);
+
+            const primaryKeySign = document.createElement('span');
+            primaryKeySign.appendChild(document.createTextNode(" |PRIMARY KEY|"));
+            primaryKeySign.style.color = 'gold';
+
+            primaryKeyField.appendChild(primaryKeySign);
         }
 
     }
 
     let relationList = [];
-    async function drawAndSaveForeignKeys(databaseId){
+
+    async function drawAndSaveForeignKeys(databaseId) {
         const foreignKeys = await fetchForeignKeys(databaseId);
 
-        for(let i = 0; i < foreignKeys.length; i++){
+        for (let i = 0; i < foreignKeys.length; i++) {
 
             const currentConnection = JSON.parse(foreignKeys[i]);
             const currentConnectionValues = Object.values(currentConnection);
@@ -97,14 +165,14 @@
 
             relationList.push(new Connection(constraintFieldId, linkedFieldId));
 
-            const newLine = document.createElementNS('http://www.w3.org/2000/svg','line');
+            const newLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
 
             newLine.setAttribute('stroke', 'red');
             newLine.setAttribute('visibility', 'visible');
             newLine.setAttribute('stroke-width', '2');
             newLine.id = constraintFieldId + '-' + linkedFieldId;
 
-            const newLineLabel = document.createElementNS('http://www.w3.org/2000/svg','text');
+            const newLineLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             newLineLabel.appendChild(document.createTextNode(fieldName));
 
             newLineLabel.id = 'label--' + newLine.id;
@@ -117,34 +185,48 @@
 
     }
 
-    async function drawTable(x, y, name, tabId){
+    async function drawTable(x, y, name, tabId, color) {
         let newTable = document.createElement('div');
         newTable.classList.add('table');
         newTable.style.top = y + 'px';
         newTable.style.left = x + 'px';
+        newTable.style.backgroundColor = color;
         newTable.id = tabId;
-        newTable.insertAdjacentHTML('beforeend', "<p>" + name + "</p>");
+
+        const newTableName = document.createElement('p');
+        newTableName.classList.add('table-name');
+        newTableName.appendChild(document.createTextNode(name));
+
+        newTable.appendChild(newTableName);
 
         const tableFields = await fetchTableFields(tabId);
 
-        for(let i = 0; i < tableFields.length ;i++){
+        for (let i = 0; i < tableFields.length; i++) {
             const tableFieldElement = document.createElement('p');
-            tableFieldElement.appendChild(document.createTextNode(tableFields[i][1] + ": " + tableFields[i][2]));
+            const tableFieldVariable = document.createElement('span');
+
+            const fieldName = tableFields[i][2];
+            const variableType = tableFields[i][1];
+
+            tableFieldVariable.style.color = variableColorMapping.get(variableType);
+
+            tableFieldVariable.appendChild(document.createTextNode(variableType + ": "));
+            tableFieldElement.appendChild(tableFieldVariable);
+
+            tableFieldElement.appendChild(document.createTextNode(fieldName));
+
 
             tableFieldElement.id = 'tf' + tableFields[i][0];
             newTable.appendChild(tableFieldElement);
         }
 
-        const lineBreak = document.createElement('br');
 
         let configButton = initConfigButton(tabId);
         let deleteButton = initDeleteButton(tabId);
 
         newTable.appendChild(configButton);
-        newTable.appendChild(lineBreak);
 
         newTable.appendChild(deleteButton);
-        newTable.appendChild(lineBreak);
 
 
         document.getElementById('usable-panel-area').appendChild(newTable);
@@ -158,10 +240,10 @@
         currentTable.appendTo("body");
         currentTable.draggable({
             containment: '#usable-panel-area',
-            drag: () =>{
+            drag: () => {
                 redrawRelations(relationList);
             },
-            stop: (event, ui) =>{
+            stop: (event, ui) => {
                 let tableId = event.target.id;
                 let newTop = event.target.style.top;
                 let newLeft = event.target.style.left;
@@ -172,33 +254,33 @@
 
     }
 
-    function initConfigButton(tableId){
+    function initConfigButton(tableId) {
 
         let configButton = document.createElement('button');
         configButton.textContent = 'Manage table';
-        configButton.classList.toggle('config-table-button');
-        configButton.addEventListener('click', () =>{
-            window.open('http://localhost:8080/manage_data?tableId=' + tableId, 'Manage data window');
+        configButton.classList.toggle('config-table--button');
+        configButton.addEventListener('click', () => {
+            window.open('http://localhost:8080/manage_data?tableId=' + tableId + "&databaseId=" + dbId, 'Manage data window');
         });
 
         return configButton;
     }
 
-    function initDeleteButton(tableId){
+    function initDeleteButton(tableId) {
 
         let deleteButton = document.createElement('button');
         deleteButton.textContent = 'Delete table';
-        deleteButton.classList.toggle('delete-table-button');
+        deleteButton.classList.toggle('delete-table--button');
 
-        deleteButton.addEventListener('click', () =>{
+        deleteButton.addEventListener('click', () => {
 
             $.ajax({
-               type: 'post',
+                type: 'post',
                 url: '/deleteTable',
-                data:{
-                   'tableId' : tableId
+                data: {
+                    'tableId': tableId
                 },
-                success: () =>{
+                success: () => {
 
                 }
             });
@@ -225,8 +307,9 @@
 
     }
 
-    function redrawRelations(relList){
-        for(let i = 0; i < relList.length; i++){
+    function redrawRelations(relList) {
+
+        for (let i = 0; i < relList.length; i++) {
             const constraintFieldId = relList[i].fieldId;
             const linkedFieldId = relList[i].linkFieldId;
 
@@ -235,11 +318,11 @@
 
             const currentLine = document.getElementById(constraintFieldId + '-' + linkedFieldId);
             const currentLineLabel = document.getElementById('label--' + currentLine.id);
-            const fOx1 = fieldOne.offset().left + fieldOne.width()/2;
-            const fOy1 = fieldOne.offset().top; //- fieldOne.height()/2;
+            const fOx1 = fieldOne.offset().left + fieldOne.width() / 2;
+            const fOy1 = fieldOne.offset().top - fieldOne.height();
 
-            const fOx2 = fieldTwo.offset().left  + fieldTwo.width()/2;
-            const fOy2 = fieldTwo.offset().top;  //- fieldTwo.height()/2;
+            const fOx2 = fieldTwo.offset().left + fieldTwo.width() / 2;
+            const fOy2 = fieldTwo.offset().top - fieldTwo.height();
 
             $(currentLine)
                 .attr('x1', fOx1)
@@ -248,24 +331,23 @@
                 .attr('y2', fOy2);
 
             $(currentLineLabel)
-                .attr('x', (fOx1 + fOx2)/2)
-                .attr('y', (fOy1 + fOy2)/2);
+                .attr('x', (fOx1 + fOx2) / 2)
+                .attr('y', (fOy1 + fOy2) / 2);
 
         }
     }
 
-    document.addEventListener('click', (e) =>{
-        if(e.target.className === 'table-manage-button'
+    document.addEventListener('click', (e) => {
+        if (e.target.className === 'table-manage-button'
             || e.target.className === 'data-manage-button'
-            || e.target.classList.contains('table-content--active')){
+            || e.target.classList.contains('table-content--active')) {
 
             const nextElement = e.target.nextElementSibling;
             e.target.classList.toggle('table-content--active');
-            if(e.target.classList.contains('table-content--active')){
+            if (e.target.classList.contains('table-content--active')) {
                 nextElement.style.maxHeight = nextElement.scrollHeight + 'px';
 
-            }
-            else{
+            } else {
                 nextElement.style.maxHeight = 0 + 'px';
             }
         }

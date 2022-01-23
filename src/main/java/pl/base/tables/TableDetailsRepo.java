@@ -16,5 +16,10 @@ public interface TableDetailsRepo extends JpaRepository<TableDetails, Long> {
     @Modifying
     @Transactional
     @Query("UPDATE TableDetails td SET td.pageX = ?2, td.pageY = ?3 WHERE td.tableId = ?1")
-    public void setNewTableDetails(Long tableId, Integer pageX, Integer pageY);
+    public void setNewTablePlacement(Long tableId, Integer pageX, Integer pageY);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE TableDetails td SET td.color = ?2 WHERE td.tableId = ?1")
+    public void setNewTableColor(Long tableId, String color);
 }

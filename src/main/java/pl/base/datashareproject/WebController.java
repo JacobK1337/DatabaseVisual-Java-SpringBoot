@@ -18,12 +18,10 @@ import pl.base.databases.DatabaseManagement;
 import pl.base.fields.FieldManagement;
 import pl.base.fields.TableField;
 import pl.base.tables.DatabaseTable;
-
 import pl.base.tables.TableDetails;
 import pl.base.tables.TableManagement;
 import pl.base.user.UserManagement;
 
-import java.lang.reflect.Field;
 import java.util.*;
 
 @Controller
@@ -45,28 +43,28 @@ public class WebController {
     private FieldManagement fieldManagement;
 
     @GetMapping("/login")
-    public String login(){
+    public String login() {
         Authentication check = SecurityContextHolder.getContext().getAuthentication();
 
-        if(check == null || check instanceof AnonymousAuthenticationToken)
+        if (check == null || check instanceof AnonymousAuthenticationToken)
             return "login";
         else return "redirect:/home";
     }
 
     @GetMapping("/register")
-    String register(){
+    String register() {
         return "register";
     }
 
     @GetMapping("/home")
-    String home(){
+    String home() {
         return "home";
     }
 
     @GetMapping("/")
-    String welcome(){
+    String welcome() {
         Authentication check = SecurityContextHolder.getContext().getAuthentication();
-        if(check == null || check instanceof AnonymousAuthenticationToken)
+        if (check == null || check instanceof AnonymousAuthenticationToken)
             return "welcome";
         else
             return "redirect:/home";
@@ -74,34 +72,48 @@ public class WebController {
 
     @PostMapping("/createAccount")
     public String createAccount(@RequestParam("username") String username,
-                                @RequestParam("password") String password){
-        try{
+                                @RequestParam("password") String password) {
+        try {
 
             userManagement.createNewAccount(username, password);
             return "redirect:/login";
-        }
-        catch(Exception e){
+        } catch (Exception e) {
             return "redirect:/register";
         }
 
     }
 
     @GetMapping("/databases")
-    public String databases(Model model){
+    public String databases(Model model) {
         model.addAttribute("userDatabases", dbManagement.getUserDatabases(id()));
 
         return "databases";
     }
 
     @PostMapping("/createDatabase")
-    public String createDatabase(@RequestParam("databaseName") String databaseName){
+    public String createDatabase(@RequestParam("databaseName") String databaseName) {
         dbManagement.createNewDatabase(id(), databaseName);
 
         return "redirect:/databases";
     }
 
-    @PostMapping("/panel")
-    public String panel(@RequestParam("databaseId") String databaseId, Model model){
+    @PostMapping("/createNewTable")
+    @ResponseStatus(HttpStatus.OK)
+    public void createNewTable(@RequestParam("databaseId") String databaseId,
+                               @RequestParam("tableName") String tableName,
+                               @RequestParam("primaryKeyName") String primaryKeyName,
+                               @RequestParam("primaryKeyType") String primaryKeyType) {
+
+        Long databaseIdLong = Long.parseLong(databaseId);
+        tabManagement.createNewTable(databaseIdLong,
+                tableName,
+                primaryKeyName,
+                primaryKeyType);
+
+    }
+
+    @GetMapping("/panel")
+    public String panel(@RequestParam("databaseId") String databaseId, Model model) {
         Long dbId = Long.parseLong(databaseId);
 
         model.addAttribute("databaseId", dbId);
@@ -110,21 +122,22 @@ public class WebController {
     }
 
     @GetMapping("/manage_data")
-    public ModelAndView manageData(@RequestParam("tableId") String tableId){
+    public ModelAndView manageData(@RequestParam("tableId") String tableId, @RequestParam("databaseId") String databaseId) {
         ModelAndView manageDataPage = new ModelAndView("manage_data");
         manageDataPage.addObject("tableId", tableId);
+        manageDataPage.addObject("databaseId", databaseId);
 
         return manageDataPage;
     }
 
     @GetMapping("/tableDetails")
     @ResponseBody
-    public String tableDetails(@RequestParam("databaseId") String databaseId){
+    public String tableDetails(@RequestParam("databaseId") String databaseId) {
         Long databaseIdL = Long.parseLong(databaseId);
 
         List<List<String>> tableDetails = new ArrayList<>();
 
-        for(DatabaseTable dt : tabManagement.getDatabaseTables(databaseIdL)){
+        for (DatabaseTable dt : tabManagement.getDatabaseTables(databaseIdL)) {
             Long tableId = dt.getTableId();
 
             TableDetails currentTableDetails = tabManagement.getTableDetails(tableId);
@@ -133,48 +146,51 @@ public class WebController {
             String tableName = currentTableDetails.getTableName();
             String pageX = String.valueOf(currentTableDetails.getPageX());
             String pageY = String.valueOf(currentTableDetails.getPageY());
+            String color = currentTableDetails.getColor();
             tableDetails.add(Arrays.asList(
                     tableIdStr,
                     tableName,
                     pageX,
-                    pageY
+                    pageY,
+                    color
             ));
         }
 
         return new Gson().toJson(tableDetails);
     }
 
-    @GetMapping("/getTableName")
-    @ResponseBody
-    public String getTableName(@RequestParam("tableId") String tableId){
-        Long tabId = Long.parseLong(tableId);
-
-        return new Gson().toJson(tabManagement.getTableName(tabId));
-    }
-
     @GetMapping("/getTableFields")
     @ResponseBody
-    public String getTableFields(@RequestParam("tableId") String tableId){
+    public String getTableFields(@RequestParam("tableId") String tableId) {
         Long tabId = Long.parseLong(tableId);
 
         List<List<String>> fieldInfo = new ArrayList<>();
-        for(TableField tf : tabManagement.getTableFields(tabId)){
+        for (TableField tf : tabManagement.getTableFields(tabId)) {
             String id = tf.getFieldId().toString();
             String type = tf.getFieldType();
             String name = tf.getFieldName();
+            String nullable = String.valueOf(tf.isNullable());
+            String unique = String.valueOf(tf.isUnique());
+            String primaryKey = String.valueOf(tf.isPrimaryKey());
+            String foreignKey = String.valueOf(tf.isForeignKey());
 
             fieldInfo.add(Arrays.asList(
                     id,
                     type,
-                    name
+                    name,
+                    nullable,
+                    unique,
+                    primaryKey,
+                    foreignKey
             ));
         }
 
         return new Gson().toJson(fieldInfo);
     }
+
     @GetMapping("/getTableData")
     @ResponseBody
-    public String getTableData(@RequestParam("tableId") String tableId){
+    public String getTableData(@RequestParam("tableId") String tableId) {
 
         Long tabId = Long.parseLong(tableId);
         return new Gson().toJson(tabManagement.getTableData(tabId));
@@ -183,43 +199,97 @@ public class WebController {
 
     @GetMapping("/getFilteredTableData")
     @ResponseBody
-    public String getFilteredTableData(@RequestParam Map<String, String> params){
-
-        Long tabId = Long.parseLong(params.get("tableId"));
+    public String getFilteredTableData(@RequestParam Map<String, String> params) {
         return new Gson().toJson(tabManagement.getFilteredTableData(params));
-
     }
 
     @PostMapping("/modifyData")
     @ResponseStatus(value = HttpStatus.OK)
     @ResponseBody
-    public void modifyData(@RequestParam Map<String, String> params){
+    public void modifyData(@RequestParam Map<String, String> params) {
 
         Long tabId = Long.parseLong(params.get("tableId"));
 
 
-        for(List<String> td : tabManagement.getTableData(tabId)){
+        for (List<String> td : tabManagement.getTableData(tabId)) {
 
             Long dataId = Long.parseLong(td.get(0));
-            for(TableField tf : tabManagement.getTableFields(tabId)){
+            for (TableField tf : tabManagement.getTableFields(tabId)) {
 
                 String currentKey = tf.getFieldName();
-                //new param gotten from panel.html
                 String newParam = params.get(dataId + currentKey);
 
                 //could be null when filtered data is modified
-                if((newParam != null && !newParam.equals("")) || (newParam != null  && tf.isNullable()))
-                    //newJsonVal.addProperty(finalKey, newParam);
+                if ((newParam != null && !newParam.equals("")) || (newParam == null && tf.isNullable()))
+
                     tabManagement.modifyJsonData(dataId, "$." + currentKey, newParam);
 
 
             }
         }
     }
+
+    @PostMapping("/updateStyle")
+    @ResponseStatus(HttpStatus.OK)
+    @ResponseBody
+    public void updateStyle(@RequestParam("tableId") String tableId,
+                            @RequestParam("tableStyleColor") String tableStyleColor) {
+
+        Long tableIdL = Long.parseLong(tableId);
+        tabManagement.updateTableColor(tableIdL, tableStyleColor);
+
+    }
+
+
+    @PostMapping("/updateConstraints")
+    @ResponseStatus(HttpStatus.OK)
+    @ResponseBody
+    public void updateConstraints(@RequestParam Map<String, String> params) {
+        Long tableId = Long.parseLong(params.get("tableId"));
+
+        DatabaseTable currentTable = tabManagement.getTable(tableId);
+        Long databaseId = currentTable.getDatabaseId();
+
+        for (TableField tf : tabManagement.getTableFields(tableId)) {
+
+            Long tableFieldId = tf.getFieldId();
+
+            if (params.get("isNullable" + tableFieldId) != null && !tf.isNullable()) {
+                fieldManagement.setAsNullable(tableFieldId);
+                constraintManagement.setNotNullConstraint(tableFieldId, databaseId);
+            } else if (params.get("isNullable" + tableFieldId) == null && tf.isNullable() && !tf.isPrimaryKey()) {
+                fieldManagement.setAsNotNullable(tableFieldId);
+                constraintManagement.dropNotNullConstraint(tableFieldId);
+            }
+
+            if (params.get("isUnique" + tableFieldId) != null && !tf.isUnique()) {
+                fieldManagement.setAsUnique(tableFieldId);
+                constraintManagement.setUniqueConstraint(tableFieldId, databaseId);
+            } else if (params.get("isUnique" + tableFieldId) == null && tf.isUnique() && !tf.isPrimaryKey()) {
+                fieldManagement.setAsNotUnique(tableFieldId);
+                constraintManagement.dropUniqueConstraint(tableFieldId);
+            }
+
+            if (!params.get("isForeignKey" + tableFieldId).equals("None") && !tf.isForeignKey()) {
+                String foreignKeyId = params.get("isForeignKey" + tableFieldId);
+                Long foreignKeyIdLong = Long.parseLong(foreignKeyId);
+
+                String onDeleteAction = "cascade";
+                fieldManagement.setAsForeignKey(tableFieldId);
+                constraintManagement.setForeignKeyConstraint(tableFieldId, foreignKeyIdLong, databaseId, onDeleteAction);
+            } else if (params.get("isForeignKey" + tableFieldId).equals("None") && tf.isForeignKey()) {
+                fieldManagement.setAsNotForeignKey(tableFieldId);
+                constraintManagement.dropForeignKeyConstraint(tableFieldId);
+            }
+
+        }
+
+    }
+
     @PostMapping("/deleteTable")
     @ResponseStatus(HttpStatus.OK)
     @ResponseBody
-    public void deleteTable(@RequestParam("tableId") String tableId){
+    public void deleteTable(@RequestParam("tableId") String tableId) {
 
         Long tableIdL = Long.parseLong(tableId);
         tabManagement.deleteTable(tableIdL);
@@ -229,11 +299,11 @@ public class WebController {
     @PostMapping("/deleteData")
     @ResponseStatus(value = HttpStatus.OK)
     @ResponseBody
-    public void deleteData(@RequestParam Map<String, String> params){
+    public void deleteData(@RequestParam Map<String, String> params) {
         params
                 .entrySet()
                 .stream()
-                .forEach(entry ->{
+                .forEach(entry -> {
                     Long dataId = Long.parseLong(entry.getValue());
                     tabManagement.deleteJsonData(dataId);
                 });
@@ -242,15 +312,16 @@ public class WebController {
     @PostMapping("/addData")
     @ResponseStatus(value = HttpStatus.OK)
     @ResponseBody
-    public void addData(@RequestParam Map<String, String> params){
+    public void addData(@RequestParam Map<String, String> params) {
 
         Long tabId = Long.parseLong(params.get("tableId"));
 
         JsonObject newData = new JsonObject();
 
-        for(TableField tf : tabManagement.getTableFields(tabId)){
+        for (TableField tf : tabManagement.getTableFields(tabId)) {
 
             String newValue = params.get(tf.getFieldName());
+
             newData.addProperty(tf.getFieldName(), newValue);
 
         }
@@ -261,7 +332,7 @@ public class WebController {
     @ResponseStatus(value = HttpStatus.OK)
     public void updateTablePlacement(@RequestParam("tableId") String tableId,
                                      @RequestParam("pageX") String pageX,
-                                     @RequestParam ("pageY") String pageY){
+                                     @RequestParam("pageY") String pageY) {
 
         Long tableIdL = Long.parseLong(tableId);
 
@@ -280,7 +351,7 @@ public class WebController {
                          @RequestParam("fieldType") String fieldType,
                          @RequestParam(value = "nullable", required = false) String nullable,
                          @RequestParam(value = "unique", required = false) String unique,
-                         @RequestParam("defaultValue") String defaultValue){
+                         @RequestParam("defaultValue") String defaultValue) {
 
         Long tableIdL = Long.parseLong(tableId);
 
@@ -295,25 +366,52 @@ public class WebController {
                 uniqueVar,
                 defaultValue);
 
-
     }
+
     @PostMapping("/deleteField")
     @ResponseStatus(HttpStatus.OK)
-    public void deleteField(@RequestParam Map<String, String> params){
+    public void deleteField(@RequestParam Map<String, String> params) {
 
         Long tableId = Long.parseLong(params.get("tableId"));
 
-        for(TableField tf : tabManagement.getTableFields(tableId)){
-            if(params.get(tf.getFieldName()) != null){
+        for (TableField tf : tabManagement.getTableFields(tableId)) {
+            if (params.get(tf.getFieldName()) != null) {
                 fieldManagement.deleteFieldByName(tf.getFieldName(), tableId);
             }
         }
 
     }
 
+    @GetMapping("/getPrimaryKeys")
+    @ResponseBody
+    public String getPrimaryKeys(@RequestParam("databaseId") String databaseId) {
+
+        Long databaseIdL = Long.parseLong(databaseId);
+
+        List<FieldConstraint> primaryKeys = constraintManagement.getPrimaryKeysByDatabaseId(databaseIdL);
+
+        List<String> response = new ArrayList<>();
+
+        for (FieldConstraint fc : primaryKeys) {
+            TableField currentTableField = fieldManagement.getTableFieldById(fc.getFieldId());
+            String primaryKeyName = currentTableField.getFieldName();
+            String tableName = tabManagement.getTableDetails(currentTableField.getTableId()).getTableName();
+            String tableId = currentTableField.getTableId().toString();
+
+            JsonObject jsonResult = new JsonObject();
+            jsonResult.addProperty("fieldId", fc.getFieldId());
+            jsonResult.addProperty("fieldName", primaryKeyName);
+            jsonResult.addProperty("tableName", tableName);
+            jsonResult.addProperty("tableId", tableId);
+            response.add(jsonResult.toString());
+        }
+
+        return new Gson().toJson(response);
+    }
+
     @GetMapping("/getForeignKeys")
     @ResponseBody
-    public String getForeignKeys(@RequestParam("databaseId") String databaseId){
+    public String getForeignKeys(@RequestParam("databaseId") String databaseId) {
 
         Long databaseIdL = Long.parseLong(databaseId);
 
@@ -321,7 +419,7 @@ public class WebController {
 
         List<String> response = new ArrayList<>();
 
-        for(FieldConstraint fc : foreignKeys){
+        for (FieldConstraint fc : foreignKeys) {
             JsonObject jsonParser = new JsonParser()
                     .parse(fc.getConstraintInfoJson())
                     .getAsJsonObject();
@@ -343,10 +441,11 @@ public class WebController {
         return new Gson().toJson(response);
     }
 
-    public String username(){
+    public String username() {
         return SecurityContextHolder.getContext().getAuthentication().getName();
     }
-    public Long id(){
+
+    public Long id() {
         return userManagement.getUserId(username());
     }
 }

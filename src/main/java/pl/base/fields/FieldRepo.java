@@ -26,4 +26,38 @@ public interface FieldRepo extends JpaRepository<TableField, Long> {
     @Query(nativeQuery = true, value="DELETE FROM table_fields WHERE field_name = ?1 AND table_id = ?2")
     public void deleteFieldByFieldName(String fieldName, Long tableId);
 
+    @Modifying
+    @Transactional
+    @Query("UPDATE TableField tf SET tf.isPrimaryKey = true WHERE tf.fieldId = ?1")
+    public void setFieldAsPrimaryKey(Long fieldId);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE TableField tf SET tf.isForeignKey = true WHERE tf.fieldId = ?1")
+    public void setFieldAsForeignKey(Long fieldId);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE TableField tf SET tf.isForeignKey = false WHERE tf.fieldId = ?1")
+    public void setFieldAsNotForeignKey(Long fieldId);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE TableField tf SET tf.isUnique = true WHERE tf.fieldId = ?1")
+    public void setAsUnique(Long fieldId);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE TableField tf SET tf.isUnique = false WHERE tf.fieldId = ?1")
+    public void setAsNotUnique(Long fieldId);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE TableField tf SET tf.nullable = false WHERE tf.fieldId = ?1")
+    public void setAsNotNullable(Long fieldId);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE TableField tf SET tf.nullable = true WHERE tf.fieldId = ?1")
+    public void setAsNullable(Long fieldId);
 }

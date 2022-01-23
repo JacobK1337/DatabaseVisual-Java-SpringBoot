@@ -14,7 +14,7 @@
 <article class="database-list-parent">
     <div class="database-list">
         <tr th:each="database: ${userDatabases}">
-            <form th:action="@{/panel}" method="post">
+            <form th:action="@{/panel}" method="get">
                 <p><input type="submit" th:value="${database.getDatabaseName()}"></p>
                 <input type="hidden" name="databaseId" th:value="${database.getDatabaseId()}">
             </form>

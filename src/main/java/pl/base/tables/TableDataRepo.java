@@ -27,6 +27,7 @@ public interface TableDataRepo extends JpaRepository<TableData, Long> {
     @Query(nativeQuery = true, value="UPDATE tables_data SET field_json_value = JSON_REMOVE(field_json_value, ?1) WHERE table_id = ?2")
     public void eraseJsonFieldByKey(String key, Long tableId);
 
+
     @Modifying
     @Transactional
     public void deleteTableDataByDataId(Long dataId);

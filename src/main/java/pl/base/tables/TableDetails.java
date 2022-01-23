@@ -16,7 +16,6 @@ import javax.persistence.*;
 public class TableDetails {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "table_id")
     private Long tableId;
 
@@ -28,4 +27,7 @@ public class TableDetails {
 
     @Column(name = "page_y")
     private int pageY;
+
+    @Column(name = "color")
+    private String color;
 }
