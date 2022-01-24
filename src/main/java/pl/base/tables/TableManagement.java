@@ -5,6 +5,9 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import pl.base.constraints.ConstraintManagement;
+import pl.base.constraints.FieldConstraint;
+import pl.base.fields.FieldManagement;
 import pl.base.fields.FieldRepo;
 import pl.base.fields.TableField;
 
@@ -30,6 +33,12 @@ public class TableManagement {
 
     @Autowired
     private TableDataFilteredImpl tableDataFiltered;
+
+    @Autowired
+    private ConstraintManagement constraintManagement;
+
+    @Autowired
+    private FieldManagement fieldManagement;
 
     public List<DatabaseTable> getDatabaseTables(Long databaseId) {
         return tableRepo.findByDatabaseId(databaseId);
@@ -62,12 +71,23 @@ public class TableManagement {
                 1000,
                 1000,
                 "green"
-                );
+        );
 
         tableDetailsRepo.save(newTableDetails);
 
+        fieldManagement.addNewField(newTableId,
+                primaryKeyName,
+                primaryKeyType,
+                false,
+                true,
+                "null",
+                true);
 
+        Long newPrimaryKeyId = fieldRepo.
+                findTableFieldPrimaryKey(newTableId).
+                getFieldId();
 
+        constraintManagement.setPrimaryKeyConstraint(newPrimaryKeyId, databaseId);
     }
 
     public List<List<String>> getTableData(Long tableId) {
@@ -95,8 +115,11 @@ public class TableManagement {
         return result;
     }
 
-    public void deleteTable(Long tableId) {
-        tableRepo.deleteDatabaseTableByTableId(tableId);
+    public void deleteTable(Long tableId, Long databaseId) {
+        Long tablePrimaryKey = getPrimaryKeyFieldId(tableId);
+
+        if (!isReferencedByForeignKey(tablePrimaryKey, databaseId))
+            tableRepo.deleteDatabaseTableByTableId(tableId);
     }
 
     public void modifyJsonData(Long dataId,
@@ -152,10 +175,12 @@ public class TableManagement {
         tableFields
                 .stream()
                 .forEach(tableField -> {
+                    Long fieldId = tableField.getFieldId();
                     String fieldType = tableField.getFieldType();
                     String fieldName = tableField.getFieldName();
                     Boolean nullable = tableField.isNullable();
                     Boolean unique = tableField.isUnique();
+                    Boolean isForeignKey = tableField.isForeignKey();
 
                     String toVerifyStr = toVerify.get(fieldName).toString();
 
@@ -173,9 +198,82 @@ public class TableManagement {
                     else if (unique && !isUnique(tableId, fieldName, toVerifyStr))
                         errorLogs.add("Trying to insert used value to unique-value field");
 
+                    else if (isForeignKey && !foreignKeyValueExistsInPrimaryKeyTable(fieldId, toVerifyStr)) {
+                        errorLogs.add("Such value doesn't exist in field referenced by foreign key!");
+                    }
+
                 });
 
         return errorLogs;
+    }
+
+    public Long getPrimaryKeyFieldId(Long tableId) {
+        return
+                fieldRepo.findByTableId(tableId)
+                        .stream()
+                        .filter(TableField::isPrimaryKey)
+                        .findFirst()
+                        .get()
+                        .getFieldId();
+    }
+
+    private Boolean isReferencedByForeignKey(Long fieldId, Long databaseId) {
+        return
+                constraintManagement.getForeignKeysByDatabaseId(databaseId)
+                        .stream()
+                        .anyMatch(fieldConstraint -> {
+                            JsonObject jsonField = new JsonParser()
+                                    .parse(fieldConstraint.getConstraintInfoJson())
+                                    .getAsJsonObject();
+
+                            String referencedFieldId = jsonField.get("linkedFieldId").toString();
+                            referencedFieldId = referencedFieldId.substring(1, referencedFieldId.length() - 1);
+
+                            return Long.parseLong(referencedFieldId) == fieldId;
+                        });
+    }
+
+    private void updateForeignKeyValues(){
+
+    }
+    
+    private Boolean foreignKeyValueExistsInPrimaryKeyTable(Long fieldId,
+                                                           String toVerify) {
+
+        FieldConstraint foreignKeyConstraint = constraintManagement.getForeignKeyByFieldId(fieldId);
+
+        JsonObject foreignKeyDescription = new JsonParser()
+                .parse(foreignKeyConstraint.getConstraintInfoJson())
+                .getAsJsonObject();
+
+        String referencedFieldId = foreignKeyDescription.get("linkedFieldId").toString();
+
+        referencedFieldId = referencedFieldId.substring(1, referencedFieldId.length() - 1);
+
+        Long referencedFieldIdLong = Long.parseLong(referencedFieldId);
+
+        TableField referencedField = fieldManagement.getTableFieldById(referencedFieldIdLong);
+
+        Long referencedFieldTableId = referencedField.getTableId();
+
+        String referencedFieldName = referencedField.getFieldName();
+
+
+        return
+                tableDataRepo.findByTableId(referencedFieldTableId)
+                        .stream()
+                        .anyMatch(tableData -> {
+                            JsonObject jsonField = new JsonParser()
+                                    .parse(tableData.getFieldJsonValue())
+                                    .getAsJsonObject();
+
+                            String jsonFieldValue = jsonField.get(referencedFieldName).toString();
+                            jsonFieldValue = jsonFieldValue.substring(1, jsonFieldValue.length() - 1);
+
+                            return jsonFieldValue
+                                    .equals(toVerify);
+                        });
+
     }
 
     private Boolean isUnique(Long tableId, String fieldName, String toVerify) {

@@ -271,12 +271,18 @@ public class WebController {
             }
 
             if (!params.get("isForeignKey" + tableFieldId).equals("None") && !tf.isForeignKey()) {
-                String foreignKeyId = params.get("isForeignKey" + tableFieldId);
-                Long foreignKeyIdLong = Long.parseLong(foreignKeyId);
 
-                String onDeleteAction = "cascade";
-                fieldManagement.setAsForeignKey(tableFieldId);
-                constraintManagement.setForeignKeyConstraint(tableFieldId, foreignKeyIdLong, databaseId, onDeleteAction);
+                String referencingFieldId = params.get("isForeignKey" + tableFieldId);
+                String onDeleteAction = params.get("onDelete" + tableFieldId);
+                Long referencingFieldIdLong = Long.parseLong(referencingFieldId);
+
+                TableField primaryKeyField = fieldManagement.getTableFieldById(referencingFieldIdLong);
+
+                if(tf.getFieldType().equals(primaryKeyField.getFieldType())){
+                    fieldManagement.setAsForeignKey(tableFieldId);
+                    constraintManagement.setForeignKeyConstraint(tableFieldId, referencingFieldIdLong, databaseId, onDeleteAction);
+                }
+
             } else if (params.get("isForeignKey" + tableFieldId).equals("None") && tf.isForeignKey()) {
                 fieldManagement.setAsNotForeignKey(tableFieldId);
                 constraintManagement.dropForeignKeyConstraint(tableFieldId);
@@ -289,10 +295,13 @@ public class WebController {
     @PostMapping("/deleteTable")
     @ResponseStatus(HttpStatus.OK)
     @ResponseBody
-    public void deleteTable(@RequestParam("tableId") String tableId) {
+    public void deleteTable(@RequestParam("tableId") String tableId,
+                            @RequestParam("databaseId") String databaseId) {
 
         Long tableIdL = Long.parseLong(tableId);
-        tabManagement.deleteTable(tableIdL);
+        Long databaseIdL = Long.parseLong(databaseId);
+
+        tabManagement.deleteTable(tableIdL, databaseIdL);
 
     }
 
@@ -364,7 +373,8 @@ public class WebController {
                 fieldType,
                 nullableVar,
                 uniqueVar,
-                defaultValue);
+                defaultValue,
+                false);
 
     }
 

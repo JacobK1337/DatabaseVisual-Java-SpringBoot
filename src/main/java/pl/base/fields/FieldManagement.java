@@ -46,16 +46,10 @@ public class FieldManagement {
                             String fieldType,
                             Boolean nullable,
                             Boolean unique,
-                            String defaultValue){
+                            String defaultValue,
+                            Boolean isPrimaryKey){
 
-        String type = "";
         String defaultVal = "null";
-
-        if(fieldType.equals("Integer"))
-            type = "int";
-
-        else if(fieldType.equals("String"))
-            type = "varchar";
 
         if(!defaultValue.equals(""))
             defaultVal = defaultValue;
@@ -66,15 +60,17 @@ public class FieldManagement {
                     0L,
                     tableId,
                     fieldName,
-                    type,
+                    fieldType,
                     nullable,
                     unique,
                     defaultVal,
-                    false,
+                    isPrimaryKey,
                     false
             );
 
             fieldRepo.save(newField);
+
+
             insertAddedFieldToAll(tableId, fieldName, defaultVal);
         }
 

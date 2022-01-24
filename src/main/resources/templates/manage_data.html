@@ -50,8 +50,8 @@
             <p>
                 <label for="new-field-type">Field type</label>
                 <select id="new-field-type" name="fieldType">
-                    <option>Integer</option>
-                    <option>String</option>
+                    <option value="int">Integer</option>
+                    <option value="varchar">Varchar</option>
                 </select>
             </p>
 
@@ -118,9 +118,10 @@
     const dbId = document.getElementById('databaseId').value;
 
     const constraintNameMapping = new Map([
-        [1, 'Foreign Key'],
-        [2, 'Can be null'],
-        [3, 'Unique']
+        [1, 'foreignkey'],
+        [2, 'ondelete'],
+        [3, 'nullable'],
+        [4, 'unique']
     ]);
 
     $("#new-field-submit").on('click', (e) => {
@@ -131,7 +132,7 @@
             data: $("#add-field--form").serialize(),
             success: function () {
                 //we remove the save button after successful saving
-                reloadAllContents(tableId);
+                reloadAllContents(tableId, dbId);
             }
         });
     });
@@ -199,6 +200,7 @@
     async function reloadConstraintMenu(tableId, databaseId){
         const tableFields = await fetchTableFields(tableId);
         const primaryKeys = await fetchPrimaryKeys(databaseId);
+
         loadConstraintMenu(tableId, tableFields, primaryKeys);
     }
 
@@ -244,8 +246,11 @@
             if(i === 0)
                 cellTextContent = 'Field name';
 
-            else
+            else{
                 cellTextContent = constraintNameMapping.get(i);
+
+            }
+
 
             headersCell.appendChild(document.createTextNode(cellTextContent));
         }
@@ -270,7 +275,7 @@
                     const constrName = constraintNameMapping.get(j);
 
                     switch(constrName){
-                        case 'Unique':
+                        case 'unique':
                             const uniqueCheckButton = document.createElement('input');
                             uniqueCheckButton.type = 'checkbox';
                             uniqueCheckButton.id = 'uniq-checkbutton-' + fieldId;
@@ -285,7 +290,7 @@
                             break;
 
 
-                        case 'Can be null':
+                        case 'nullable':
                             const nullCheckButton = document.createElement('input');
                             nullCheckButton.type = 'checkbox';
                             nullCheckButton.id = 'null-checkbutton-' + fieldId;
@@ -299,8 +304,7 @@
                             break;
 
 
-
-                        case 'Foreign Key':
+                        case 'foreignkey':
                             const fkSelect = document.createElement('select');
                             fkSelect.id = 'fk-select-' + fieldId;
                             fkSelect.name = 'isForeignKey' + fieldId;
@@ -324,8 +328,43 @@
                                     fkSelect.appendChild(fkOption);
                             }
 
+                            fkSelect.onchange = () =>{
+                                const onDeleteActionSelect = document.getElementById('on-delete-' + fieldId);
+
+                              if(fkSelect.value !== 'None'){
+                                  onDeleteActionSelect.style.visibility = 'visible';
+                              }
+
+                              else
+                                 onDeleteActionSelect.style.visibility = 'hidden';
+
+                            };
                             fieldConstrCell.appendChild(fkSelect);
                             break;
+
+                         case 'ondelete':
+                             const onDeleteActionSelect = document.createElement('select');
+                             onDeleteActionSelect.id = 'on-delete-' + fieldId;
+                             onDeleteActionSelect.name = 'onDelete' + fieldId;
+                             onDeleteActionSelect.style.visibility = 'hidden';
+
+                             const onDeleteOptionCascade = document.createElement('option');
+                             onDeleteOptionCascade.value = 'cascade';
+                             onDeleteOptionCascade.textContent = 'Cascade';
+
+                             const onDeleteOptionSetNull = document.createElement('option');
+                             onDeleteOptionSetNull.value = 'setnull';
+                             onDeleteOptionSetNull.textContent = 'Set null';
+
+                             const onDeleteOptionNone = document.createElement('option');
+                             onDeleteOptionNone.value = 'none';
+                             onDeleteOptionNone.textContent = 'No action';
+
+                             onDeleteActionSelect.appendChild(onDeleteOptionNone);
+                             onDeleteActionSelect.appendChild(onDeleteOptionCascade);
+                             onDeleteActionSelect.appendChild(onDeleteOptionSetNull);
+                             fieldConstrCell.appendChild(onDeleteActionSelect);
+
                     }
                 }
 
@@ -570,7 +609,7 @@
                                 success: function () {
                                     //we remove the save button after successful saving
                                     clearForm(deleteFieldForm);
-                                    reloadAllContents(tabId);
+                                    reloadAllContents(tabId, dbId);
 
                                 }
                             });

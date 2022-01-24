@@ -16,6 +16,9 @@ public interface FieldRepo extends JpaRepository<TableField, Long> {
     public List<TableField> findAll();
     public TableField findByFieldId(Long fieldId);
 
+    @Query(nativeQuery = true, value = "SELECT * FROM table_fields WHERE table_id = ?1 AND is_primary_key = true")
+    public TableField findTableFieldPrimaryKey(Long tableId);
+
     @Modifying
     @Transactional
     @Query("UPDATE TableField tf SET tf.fieldName = ?2 WHERE tf.fieldId = ?1")

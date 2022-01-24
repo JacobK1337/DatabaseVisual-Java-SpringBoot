@@ -22,6 +22,8 @@ public class ConstraintManagement {
         return constraintRepo.findForeignKeysByDatabaseId(databaseId);
     }
 
+    public FieldConstraint getForeignKeyByFieldId(Long fieldId){return constraintRepo.findForeignKeyByFieldId(fieldId);}
+
     public List<FieldConstraint> getPrimaryKeysByDatabaseId(Long databaseId){
         return constraintRepo.findPrimaryKeysByDatabaseId(databaseId);
     }
