@@ -6,8 +6,7 @@
     <link th:href="@{css/styles.css}" rel="stylesheet" type="text/css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300&family=Exo:wght@200&family=Lato:wght@300&family=Overpass:wght@200&display=swap"
-          rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300&family=Exo:wght@200&family=Lato:wght@300&family=Orbitron&family=Overpass:wght@200&display=swap" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.js"></script>
     <script src="https://code.jquery.com/ui/1.13.0/jquery-ui.js"></script>
 
@@ -18,46 +17,49 @@
 
 <div id="panel-manage--div">
     <p>Database Visualization</p>
-    <form th:action="@{/createNewTable}" method="post">
-        <input type="hidden" th:value="${databaseId}" id="databaseId" name="databaseId">
-        <table style="border-spacing: 50px">
-            <tr>
-                <td>
-                    <label for="new-table-name">New table name: </label>
-                </td>
-                <td>
-                    <input type="text" id="new-table-name" name="tableName">
-                </td>
-            </tr>
-            <tr>
-                <td>
-                    <label for="new-table-pk-name">Primary key name: </label>
-                </td>
-                <td>
-                    <input type="text" id="new-table-pk-name" name="primaryKeyName">
-                </td>
-            </tr>
-            <tr>
-                <td>
-                    <label for="new-table-pk-type">Primary key type:</label>
-                </td>
-                <td>
-                    <select id="new-table-pk-type" name="primaryKeyType">
-                        <option value="int">Integer</option>
-                        <option value="varchar">Varchar</option>
-                    </select>
-                </td>
-            </tr>
-            <tr>
-                <td><input type="submit" value="Create new table"></td>
-                <td></td>
-            </tr>
-        </table>
-
-    </form>
 </div>
 
+
 <div id="usable-panel-area">
+    <div id="create-table-panel">
+        <form th:action="@{/createNewTable}" method="post">
+            <input type="hidden" th:value="${databaseId}" id="databaseId" name="databaseId">
+            <table style="border-spacing: 50px">
+                <tr>
+                    <td>
+                        <label for="new-table-name">New table name: </label>
+                    </td>
+                    <td>
+                        <input type="text" id="new-table-name" name="tableName">
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label for="new-table-pk-name">Primary key name: </label>
+                    </td>
+                    <td>
+                        <input type="text" id="new-table-pk-name" name="primaryKeyName">
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label for="new-table-pk-type">Primary key type:</label>
+                    </td>
+                    <td>
+                        <select id="new-table-pk-type" name="primaryKeyType">
+                            <option value="int">Integer</option>
+                            <option value="varchar">Varchar</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td><input type="submit" value="Create new table"></td>
+                    <td></td>
+                </tr>
+            </table>
+
+        </form>
+    </div>
     <svg width="100%" height="100%" id="relationSvg"></svg>
 </div>
 
@@ -139,12 +141,14 @@
             const primaryKeyId = currPrimaryKey['fieldId'];
 
             const primaryKeyField = document.getElementById('tf' + primaryKeyId);
+            const primaryKeyCell = primaryKeyField.insertCell();
+            primaryKeyCell.appendChild(document.createTextNode("PRIMARY KEY"));
+            primaryKeyCell.style.color = 'gold';
+            //const primaryKeySign = document.createElement('span');
+            //primaryKeySign.appendChild(document.createTextNode(" |PRIMARY KEY|"));
+            //primaryKeySign.style.color = 'gold';
 
-            const primaryKeySign = document.createElement('span');
-            primaryKeySign.appendChild(document.createTextNode(" |PRIMARY KEY|"));
-            primaryKeySign.style.color = 'gold';
-
-            primaryKeyField.appendChild(primaryKeySign);
+            //primaryKeyField.appendChild(primaryKeySign);
         }
 
     }
@@ -167,12 +171,14 @@
 
             const newLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
 
-            newLine.setAttribute('stroke', 'red');
+            newLine.setAttribute('stroke', 'grey');
             newLine.setAttribute('visibility', 'visible');
-            newLine.setAttribute('stroke-width', '2');
+            newLine.setAttribute('stroke-width', '4');
             newLine.id = constraintFieldId + '-' + linkedFieldId;
 
             const newLineLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            newLineLabel.style.fontFamily = "Orbitron, sans-serif";
+            newLineLabel.style.fontSize = "40px";
             newLineLabel.appendChild(document.createTextNode(fieldName));
 
             newLineLabel.id = 'label--' + newLine.id;
@@ -193,20 +199,41 @@
         newTable.style.backgroundColor = color;
         newTable.id = tabId;
 
-        const newTableName = document.createElement('p');
-        newTableName.classList.add('table-name');
-        newTableName.appendChild(document.createTextNode(name));
+        let tableContent = document.createElement('table');
+        tableContent.classList.add('table-content');
+        let tableNameHeader = document.createElement('header');
+        tableNameHeader.textContent = name;
+        tableNameHeader.classList.add('table-name-headers');
+        tableNameHeader.addEventListener('dblclick', () =>{
+           alert("Clicked the header!");
+        });
+        //const newTableName = document.createElement('p');
+        //newTableName.classList.add('table-name');
+        //newTableName.appendChild(document.createTextNode(name));
 
-        newTable.appendChild(newTableName);
+        //newTable.appendChild(newTableName);
+
+        newTable.appendChild(tableNameHeader);
 
         const tableFields = await fetchTableFields(tabId);
 
         for (let i = 0; i < tableFields.length; i++) {
+            const fieldName = tableFields[i][2];
+            const variableType = tableFields[i][1];
+
+            const fieldRow = tableContent.insertRow();
+
+            const typeCell = fieldRow.insertCell();
+            typeCell.appendChild(document.createTextNode(variableType));
+            typeCell.style.color = 'darkorange';
+
+            const fieldNameCell = fieldRow.insertCell();
+            fieldNameCell.appendChild(document.createTextNode(fieldName));
+
             const tableFieldElement = document.createElement('p');
             const tableFieldVariable = document.createElement('span');
 
-            const fieldName = tableFields[i][2];
-            const variableType = tableFields[i][1];
+
 
             tableFieldVariable.style.color = variableColorMapping.get(variableType);
 
@@ -215,12 +242,13 @@
 
             tableFieldElement.appendChild(document.createTextNode(fieldName));
 
-
-            tableFieldElement.id = 'tf' + tableFields[i][0];
-            newTable.appendChild(tableFieldElement);
+            fieldRow.id = 'tf' + tableFields[i][0];
+            //tableFieldElement.id = 'tf' + tableFields[i][0];
+            //newTable.appendChild(tableFieldElement);
+            tableContent.appendChild(fieldRow);
         }
 
-
+        newTable.appendChild(tableContent);
         let configButton = initConfigButton(tabId);
         let deleteButton = initDeleteButton(tabId);
 
@@ -236,7 +264,7 @@
         //updateTableManageMenu(tabId, name);
 
         //make the table draggable ;)
-        const currentTable = $('#' + tabId);
+        const currentTable = $(newTable);
         currentTable.appendTo("body");
         currentTable.draggable({
             containment: '#usable-panel-area',
@@ -313,9 +341,8 @@
         for (let i = 0; i < relList.length; i++) {
             const constraintFieldId = relList[i].fieldId;
             const linkedFieldId = relList[i].linkFieldId;
-
-            const fieldOne = $('#tf' + constraintFieldId).parent('.table');
-            const fieldTwo = $('#tf' + linkedFieldId).parent('.table');
+            const fieldOne = $('#tf' + constraintFieldId).parents('.table')
+            const fieldTwo = $('#tf' + linkedFieldId).parents('.table');
 
             const currentLine = document.getElementById(constraintFieldId + '-' + linkedFieldId);
             const currentLineLabel = document.getElementById('label--' + currentLine.id);

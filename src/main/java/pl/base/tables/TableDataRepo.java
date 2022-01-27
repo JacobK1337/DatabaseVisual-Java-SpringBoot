@@ -20,7 +20,7 @@ public interface TableDataRepo extends JpaRepository<TableData, Long> {
     @Modifying
     @Transactional
     @Query(value = "UPDATE tables_data SET field_json_value = JSON_SET(field_json_value, ?2 , ?3) WHERE data_id = ?1", nativeQuery = true)
-    public void updateJsonValueByDataId(Long dataId, String key, String value);
+    public void updateJsonValueByDataId(Long dataId, String key, String newValue);
 
     @Modifying
     @Transactional

@@ -214,18 +214,17 @@ public class WebController {
         for (List<String> td : tabManagement.getTableData(tabId)) {
 
             Long dataId = Long.parseLong(td.get(0));
+            JsonObject newData = new JsonObject();
+
             for (TableField tf : tabManagement.getTableFields(tabId)) {
 
                 String currentKey = tf.getFieldName();
                 String newParam = params.get(dataId + currentKey);
+                newData.addProperty(currentKey, newParam);
 
-                //could be null when filtered data is modified
-                if ((newParam != null && !newParam.equals("")) || (newParam == null && tf.isNullable()))
-
-                    tabManagement.modifyJsonData(dataId, "$." + currentKey, newParam);
-
-
+                tabManagement.modifyJsonData(dataId, tabId, currentKey, newParam);
             }
+
         }
     }
 
@@ -233,10 +232,15 @@ public class WebController {
     @ResponseStatus(HttpStatus.OK)
     @ResponseBody
     public void updateStyle(@RequestParam("tableId") String tableId,
-                            @RequestParam("tableStyleColor") String tableStyleColor) {
+                            @RequestParam("tableStyleColor") String tableStyleColor,
+                            @RequestParam("newTableName") String newTableName) {
 
         Long tableIdL = Long.parseLong(tableId);
+
         tabManagement.updateTableColor(tableIdL, tableStyleColor);
+
+        tabManagement.updateTableName(tableIdL, newTableName);
+
 
     }
 
@@ -278,7 +282,7 @@ public class WebController {
 
                 TableField primaryKeyField = fieldManagement.getTableFieldById(referencingFieldIdLong);
 
-                if(tf.getFieldType().equals(primaryKeyField.getFieldType())){
+                if (tf.getFieldType().equals(primaryKeyField.getFieldType())) {
                     fieldManagement.setAsForeignKey(tableFieldId);
                     constraintManagement.setForeignKeyConstraint(tableFieldId, referencingFieldIdLong, databaseId, onDeleteAction);
                 }
@@ -309,12 +313,18 @@ public class WebController {
     @ResponseStatus(value = HttpStatus.OK)
     @ResponseBody
     public void deleteData(@RequestParam Map<String, String> params) {
+
+        Long databaseId = Long.parseLong(params.get("databaseId"));
+        Long tableId = Long.parseLong(params.get("tableId"));
+
         params
                 .entrySet()
                 .stream()
                 .forEach(entry -> {
-                    Long dataId = Long.parseLong(entry.getValue());
-                    tabManagement.deleteJsonData(dataId);
+                    if (!entry.getKey().equals("databaseId") && !entry.getKey().equals("tableId")) {
+                        Long dataId = Long.parseLong(entry.getValue());
+                        tabManagement.deleteJsonData(tableId, databaseId, dataId);
+                    }
                 });
     }
 

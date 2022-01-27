@@ -26,6 +26,8 @@ public interface ConstraintRepo extends JpaRepository<FieldConstraint, Long>{
     @Query(nativeQuery = true, value = "SELECT * FROM field_constraints WHERE JSON_EXTRACT(constraint_info_json, '$.type') = 'foreignkey' AND field_id = ?1")
     public FieldConstraint findForeignKeyByFieldId(Long fieldId);
 
+    @Query(nativeQuery = true, value = "SELECT * FROM field_constraints WHERE JSON_EXTRACT(constraint_info_json, '$.type') = 'foreignkey' AND CAST(JSON_EXTRACT(constraint_info_json, '$.linkedFieldId') AS UNSIGNED) = ?1")
+    public List<FieldConstraint> findForeignKeysByReferencedId(Long referencedId);
 
     @Modifying
     @Transactional
@@ -34,7 +36,7 @@ public interface ConstraintRepo extends JpaRepository<FieldConstraint, Long>{
 
     @Modifying
     @Transactional
-    @Query(nativeQuery = true, value = "DELETE FROM field_constraints WHERE JSON_EXTRACT(constraint_info_json, '$.type') = 'foreignkey' AND JSON_EXTRACT(constraint_info_json, '$.linkedFieldId') = ?1")
+    @Query(nativeQuery = true, value = "DELETE FROM field_constraints WHERE JSON_EXTRACT(constraint_info_json, '$.type') = 'foreignkey' AND CAST(JSON_EXTRACT(constraint_info_json, '$.linkedFieldId') AS UNSIGNED) = ?1")
     public void removeForeignKeysByPrimaryKey(Long fieldId);
 
 

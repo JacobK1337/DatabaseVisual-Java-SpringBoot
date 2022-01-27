@@ -12,7 +12,13 @@
 <header class="page-headers">DataShare Online</header>
 <p class="page-headers-desc">Data management visualised</p>
 
-<form th:action="@{/login}" method="get"><input type="submit" value="Login"></form>
-<form th:action="@{/register}" method="get"><input type="submit" value="Register"></form>
+
+<article class="login-form--parent">
+    <div class="login-form">
+        <header class="login-form--header">Get started</header>
+        <form th:action="@{/login}" method="get"><input type="submit" value="Login"></form>
+        <form th:action="@{/register}" method="get"><input type="submit" value="Register"></form>
+    </div>
+</article>
 </body>
 </html>

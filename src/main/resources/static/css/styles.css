@@ -14,14 +14,14 @@ body{
     font-size: 75px;
 }
 html{
-    background: #076585;  /* fallback for old browsers */
-    background: -webkit-linear-gradient(to left, #fff, #076585);  /* Chrome 10-25, Safari 5.1-6 */
-    background: linear-gradient(to left, #fff, #076585); /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
-
+    background-image: url("https://images.hdqwalls.com/download/color-vibe-abstract-4k-jl-1920x1080.jpg");
+    background-repeat: no-repeat;
+    background-size: cover;
 }
+
 .login-form--parent{
     position: absolute;
-    height: 70%;
+    height: 80%;
     width: 100%;
     display: flex;
     justify-content: center;
@@ -32,37 +32,40 @@ html{
     text-align: center;
     color: white;
     font-family: Overpass, sans-serif;
-    font-size: 40px;
+    font-size: 70px;
     border: 2px solid darkgrey;
     box-shadow: 5px 10px 8px;
 
 }
 .login-form--header{
     border-bottom: 2px solid darkgrey;
-    background-color: aqua;
+    background-color: blueviolet;
 }
 .login-form input[type='text']{
     font-family: Assistant, sans-serif;
     color: black;
+    font-size: 15px;
     width: 40%;
 }
 .login-form input[type='password']{
     font-family: Assistant, sans-serif;
     color: black;
     margin-left: 12px;
+    font-size: 15px;
     width: 40%;
 }
 .login-form input[type='submit']{
     color:white;
-    font-size: 25px;
+    font-size: 40px;
     font-family: Overpass, sans-serif;
     width: 60%;
     transition: 0.5s;
     text-decoration: none;
+    background-color: violet;
     border: none;
 }
 .login-form input[type='submit']:hover{
-    background-color: lightgrey;
+    background-color: darkviolet;
 }
 
 .database-list--parent{
@@ -147,24 +150,25 @@ html{
      text-align: center;
      position: absolute;
      overflow: visible;
-     width: 400px;
-     height: 400px;
-     font-size: 20px;
+     min-height: 400px;
+     min-width: 400px;
+     font-size: 40px;
+     margin-bottom: 10px;
      color: white;
-     font-family: Overpass, sans-serif;
-     border-radius: 20%;
+     font-family: Orbitron, sans-serif;
      cursor: pointer;
  }
 
- .table-name{
-     color: darkslateblue;
+ .table-name-headers{
+     color: darkorange;
+     border-bottom: 1px solid black;
  }
 
  .config-table--button{
-     font-family: Assistant, sans-serif;
+     font-family: Orbitron, sans-serif;
      background-color: transparent;
      color: magenta;
-     font-size: 20px;
+     font-size: 40px;
      border: none;
      transition: 0.5s;
  }
@@ -173,10 +177,10 @@ html{
  }
 
  .delete-table--button{
-     font-family: Assistant, sans-serif;
+     font-family: Orbitron, sans-serif;
      background-color: transparent;
      color: red;
-     font-size: 20px;
+     font-size: 40px;
      border:none;
      transition: 0.5s;
  }
@@ -192,17 +196,12 @@ html{
     font-size: 50px;
 }
 .table-content{
-    background-color: orange;
-    max-height: 0;
-    overflow: hidden;
-    text-align: center;
-    border-radius: 20%;
-    transition: max-height 0.5s;
-    font-size: 20px;
+    border-spacing: 15px;
 
 }
 .data-manage-content{
-    background-color: lightgray;
+    background-color: transparent;
+    color: white;
     max-height: 0;
     overflow: auto;
     transition: max-height 0.5s;
@@ -321,7 +320,36 @@ html{
 }
 #usable-panel-area{
     height: 3640px;
-    background-color: white;
+    background-image: url("https://wallpaper.dog/large/10886043.jpg");
+    background-repeat: no-repeat;
+    background-size: cover;
+}
+#create-table-panel{
+    float: left;
+    background-color: dimgrey;
+    color: darkorange;
+    font-family: Orbitron, sans-serif;
+    font-size: 30px;
+}
+#create-table-panel input[type='submit']{
+    text-decoration: none;
+    border: none;
+    background-color: transparent;
+    font-family: Orbitron, sans-serif;
+    color: white;
+    transition: 0.5s;
+    font-size: 30px;
+}
+#create-table-panel input[type='text']{
+    font-size: 20px;
+    font-family: Orbitron, sans-serif;
+}
+#create-table-panel select{
+    font-size: 20px;
+    font-family: Orbitron, sans-serif;
+}
+#create-table-panel input[type='submit']:hover{
+    color: black;
 }
 svg{
     overflow: visible;
