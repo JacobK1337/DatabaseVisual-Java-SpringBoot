@@ -152,22 +152,31 @@ public class TableManagement {
                     String primaryKeyData = dataJson.get(primaryKeyName).toString();
                     primaryKeyData = primaryKeyData.substring(1, primaryKeyData.length() - 1);
 
-                    if(isReferencedByForeignKey(primaryKeyId, databaseId))
-                        fixForeignKeyValues(primaryKeyId, tableId, primaryKeyData);
+                    if (isReferencedByForeignKey(primaryKeyId, databaseId))
+                        fixForeignKeyValues(primaryKeyId, primaryKeyData, dataId);
+
+                    else
+                        commitDelete(dataId);
 
                 });
 
+        //tableDataRepo.deleteTableDataByDataId(dataId);
+    }
+
+    public void commitDelete(Long dataId) {
         tableDataRepo.deleteTableDataByDataId(dataId);
     }
 
-    private void fixForeignKeyValues(Long primaryKeyId, Long tableId,  String primaryKeyValue){
+    private void fixForeignKeyValues(Long primaryKeyId, String primaryKeyValue, Long dataToDeleteId) {
 
         constraintManagement.getForeignKeysByPrimaryKeyId(primaryKeyId)
                 .stream()
                 .forEach(fieldConstraint -> {
                     Long currentFieldId = fieldConstraint.getFieldId();
 
-                    Long currentFieldTableId = fieldRepo.findByFieldId(currentFieldId).getTableId();
+                    TableField currentField = fieldRepo.findByFieldId(currentFieldId);
+
+                    Long currentFieldTableId = currentField.getTableId();
 
                     String data = fieldConstraint.getConstraintInfoJson();
                     JsonObject jsonData = new JsonParser()
@@ -177,21 +186,27 @@ public class TableManagement {
                     String onDeleteAction = jsonData.get("ondelete").toString();
                     onDeleteAction = onDeleteAction.substring(1, onDeleteAction.length() - 1);
 
-
-                    switch(onDeleteAction){
+                    switch (onDeleteAction) {
                         case "cascade":
-                            //cascadeDelete(fieldId);
+                            cascadeDelete(currentFieldTableId, currentFieldId, primaryKeyValue);
+                            commitDelete(dataToDeleteId);
                             break;
 
                         case "setnull":
-                            setValueAsNull(currentFieldTableId, currentFieldId, primaryKeyValue);
+                            if (!currentField.isNotNull()) {
+                                setForeignKeysAsNull(currentFieldTableId, currentFieldId, primaryKeyValue);
+                                commitDelete(dataToDeleteId);
+                            } else
+                                System.out.println("Cannot set as null - referenced field cant be null! -> change on delete action to Cascade");
+
                             break;
                     }
                 });
+
     }
 
 
-    private void setValueAsNull(Long tableId, Long fieldId, String valueToFind){
+    private void setForeignKeysAsNull(Long tableId, Long fieldId, String valueToFind) {
 
 
         String fieldName = fieldManagement.
@@ -201,29 +216,48 @@ public class TableManagement {
         tableDataRepo.
                 findByTableId(tableId)
                 .stream()
-                .filter(tableData -> {
-                    String data = tableData.getFieldJsonValue();
-                    JsonObject dataJson = new JsonParser()
-                            .parse(data).getAsJsonObject();
-
-                    String fieldValueInDataJson = dataJson.
-                            get(fieldName).
-                            toString();
-
-                    fieldValueInDataJson = fieldValueInDataJson.substring(1, fieldValueInDataJson.length() - 1);
-                    return fieldValueInDataJson.
-                            equals(valueToFind);
-
-                })
+                .filter(tableData -> matchesPrimaryKeyValue(tableData, fieldName, valueToFind))
                 .forEach(tableData -> {
 
                     Long dataId = tableData.getDataId();
                     tableDataRepo.updateJsonValueByDataId(dataId, "$." + fieldName, "null");
+
                 });
 
     }
 
-    private void cascadeDelete(Long fieldId){
+    private void cascadeDelete(Long tableId, Long fieldId, String valueToFind) {
+        String fieldName = fieldManagement.
+                getTableFieldById(fieldId).
+                getFieldName();
+
+        tableDataRepo.
+                findByTableId(tableId)
+                .stream()
+                .filter(tableData -> matchesPrimaryKeyValue(tableData, fieldName, valueToFind))
+                .forEach(tableData -> {
+
+                    Long dataId = tableData.getDataId();
+                    tableDataRepo.deleteTableDataByDataId(dataId);
+
+                });
+    }
+
+    private boolean matchesPrimaryKeyValue(TableData tableData, String keyToCheck, String primaryKeyValue) {
+
+        String data = tableData.getFieldJsonValue();
+        JsonObject dataJson = new JsonParser()
+                .parse(data)
+                .getAsJsonObject();
+
+        String fieldValueInDataJson = dataJson
+                .get(keyToCheck)
+                .toString();
+
+        fieldValueInDataJson = fieldValueInDataJson.substring(1, fieldValueInDataJson.length() - 1);
+
+        return fieldValueInDataJson
+                .equals(primaryKeyValue);
 
     }
 
@@ -311,14 +345,14 @@ public class TableManagement {
         Long tableId = tableField.getTableId();
         String fieldType = tableField.getFieldType();
         String fieldName = tableField.getFieldName();
-        Boolean nullable = tableField.isNullable();
+        Boolean isNotNull = tableField.isNotNull();
         Boolean unique = tableField.isUnique();
         Boolean isForeignKey = tableField.isForeignKey();
 
         if (fieldType.equals("int") && !isInteger(valueToVerify))
             errorLogs.add("Trying to insert non-int element");
 
-        if (!nullable && valueToVerify.equals(""))
+        if (isNotNull && (valueToVerify.equals("") || valueToVerify.equals("null")))
             errorLogs.add("Trying to insert null into non-null field");
 
         if (unique && !isUniqueField(tableId, fieldName, valueToVerify))

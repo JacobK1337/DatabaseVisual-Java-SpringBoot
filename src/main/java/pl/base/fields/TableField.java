@@ -28,8 +28,8 @@ public class TableField {
     @Column(name = "field_type")
     private String fieldType;
 
-    @Column(name = "nullable")
-    private boolean nullable;
+    @Column(name = "not_null")
+    private boolean notNull;
 
     @Column(name = "unique_value")
     private boolean isUnique;

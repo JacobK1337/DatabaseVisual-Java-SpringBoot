@@ -9,6 +9,6 @@ import org.springframework.context.annotation.Configuration;
         "pl.base.databases",
         "pl.base.constraints",
         "pl.base.fields",
-        "pl.base.tables"})
-public class ComponentScanConfig {
-}
+        "pl.base.tables",
+        "pl.base.dataApi"})
+public class ComponentScanConfig { }

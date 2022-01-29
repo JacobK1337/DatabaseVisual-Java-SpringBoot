@@ -160,21 +160,20 @@
 
         for (let i = 0; i < foreignKeys.length; i++) {
 
-            const currentConnection = JSON.parse(foreignKeys[i]);
-            const currentConnectionValues = Object.values(currentConnection);
+            const currentForeignKeyInfo = JSON.parse(foreignKeys[i][2]);
 
-            const constraintFieldId = currentConnectionValues[0];
-            const linkedFieldId = currentConnectionValues[1];
-            const fieldName = currentConnectionValues[2];
+            const constraintFieldId = foreignKeys[i][0];
+            const referencedFieldId = currentForeignKeyInfo['linkedFieldId'];
+            const fieldName = foreignKeys[i][1];
 
-            relationList.push(new Connection(constraintFieldId, linkedFieldId));
+            relationList.push(new Connection(constraintFieldId, referencedFieldId));
 
             const newLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
 
             newLine.setAttribute('stroke', 'grey');
             newLine.setAttribute('visibility', 'visible');
             newLine.setAttribute('stroke-width', '4');
-            newLine.id = constraintFieldId + '-' + linkedFieldId;
+            newLine.id = constraintFieldId + '-' + referencedFieldId;
 
             const newLineLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             newLineLabel.style.fontFamily = "Orbitron, sans-serif";

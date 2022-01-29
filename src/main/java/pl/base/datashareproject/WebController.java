@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.ModelAndView;
 import pl.base.constraints.ConstraintManagement;
 import pl.base.constraints.FieldConstraint;
+import pl.base.dataApi.DataApi;
+import pl.base.dataApi.DataApiManagement;
 import pl.base.databases.DatabaseManagement;
 import pl.base.fields.FieldManagement;
 import pl.base.fields.TableField;
@@ -41,6 +43,9 @@ public class WebController {
 
     @Autowired
     private FieldManagement fieldManagement;
+
+    @Autowired
+    private DataApiManagement dataApiManagement;
 
     @GetMapping("/login")
     public String login() {
@@ -169,7 +174,7 @@ public class WebController {
             String id = tf.getFieldId().toString();
             String type = tf.getFieldType();
             String name = tf.getFieldName();
-            String nullable = String.valueOf(tf.isNullable());
+            String isNotNull = String.valueOf(tf.isNotNull());
             String unique = String.valueOf(tf.isUnique());
             String primaryKey = String.valueOf(tf.isPrimaryKey());
             String foreignKey = String.valueOf(tf.isForeignKey());
@@ -178,7 +183,7 @@ public class WebController {
                     id,
                     type,
                     name,
-                    nullable,
+                    isNotNull,
                     unique,
                     primaryKey,
                     foreignKey
@@ -220,9 +225,13 @@ public class WebController {
 
                 String currentKey = tf.getFieldName();
                 String newParam = params.get(dataId + currentKey);
-                newData.addProperty(currentKey, newParam);
+                if (newParam != null) {
 
-                tabManagement.modifyJsonData(dataId, tabId, currentKey, newParam);
+                    newData.addProperty(currentKey, newParam);
+
+                    tabManagement.modifyJsonData(dataId, tabId, currentKey, newParam);
+                }
+
             }
 
         }
@@ -258,11 +267,11 @@ public class WebController {
 
             Long tableFieldId = tf.getFieldId();
 
-            if (params.get("isNullable" + tableFieldId) != null && !tf.isNullable()) {
-                fieldManagement.setAsNullable(tableFieldId);
+            if (params.get("isNotNull" + tableFieldId) != null && !tf.isNotNull()) {
+                fieldManagement.setAsNotNull(tableFieldId);
                 constraintManagement.setNotNullConstraint(tableFieldId, databaseId);
-            } else if (params.get("isNullable" + tableFieldId) == null && tf.isNullable() && !tf.isPrimaryKey()) {
-                fieldManagement.setAsNotNullable(tableFieldId);
+            } else if (params.get("isNotNull" + tableFieldId) == null && tf.isNotNull() && !tf.isPrimaryKey()) {
+                fieldManagement.setAsNullable(tableFieldId);
                 constraintManagement.dropNotNullConstraint(tableFieldId);
             }
 
@@ -274,7 +283,7 @@ public class WebController {
                 constraintManagement.dropUniqueConstraint(tableFieldId);
             }
 
-            if (!params.get("isForeignKey" + tableFieldId).equals("None") && !tf.isForeignKey()) {
+            if (!params.get("isForeignKey" + tableFieldId).equals("None")) {
 
                 String referencingFieldId = params.get("isForeignKey" + tableFieldId);
                 String onDeleteAction = params.get("onDelete" + tableFieldId);
@@ -284,10 +293,11 @@ public class WebController {
 
                 if (tf.getFieldType().equals(primaryKeyField.getFieldType())) {
                     fieldManagement.setAsForeignKey(tableFieldId);
+                    constraintManagement.dropForeignKeyConstraint(tableFieldId);
                     constraintManagement.setForeignKeyConstraint(tableFieldId, referencingFieldIdLong, databaseId, onDeleteAction);
                 }
 
-            } else if (params.get("isForeignKey" + tableFieldId).equals("None") && tf.isForeignKey()) {
+            } else if (params.get("isForeignKey" + tableFieldId).equals("None")) {
                 fieldManagement.setAsNotForeignKey(tableFieldId);
                 constraintManagement.dropForeignKeyConstraint(tableFieldId);
             }
@@ -368,20 +378,20 @@ public class WebController {
     public void addField(@RequestParam("tableId") String tableId,
                          @RequestParam("fieldName") String fieldName,
                          @RequestParam("fieldType") String fieldType,
-                         @RequestParam(value = "nullable", required = false) String nullable,
+                         @RequestParam(value = "notNull", required = false) String notNull,
                          @RequestParam(value = "unique", required = false) String unique,
                          @RequestParam("defaultValue") String defaultValue) {
 
         Long tableIdL = Long.parseLong(tableId);
 
-        Boolean nullableVar = nullable != null;
+        Boolean notNullVar = notNull != null;
         Boolean uniqueVar = unique != null;
 
         fieldManagement.addNewField(
                 tableIdL,
                 fieldName,
                 fieldType,
-                nullableVar,
+                notNullVar,
                 uniqueVar,
                 defaultValue,
                 false);
@@ -437,30 +447,59 @@ public class WebController {
 
         List<FieldConstraint> foreignKeys = constraintManagement.getForeignKeysByDatabaseId(databaseIdL);
 
-        List<String> response = new ArrayList<>();
+        List<List<String>> response = new ArrayList<>();
 
         for (FieldConstraint fc : foreignKeys) {
-            JsonObject jsonParser = new JsonParser()
-                    .parse(fc.getConstraintInfoJson())
-                    .getAsJsonObject();
-
-            JsonObject jsonResult = new JsonObject();
-
-            TableField currentField = fieldManagement.getTableFieldById(fc.getFieldId());
-
-            String fieldName = currentField.getFieldName();
-            String linkedFieldId = jsonParser.get("linkedFieldId").toString();
-            linkedFieldId = linkedFieldId.substring(1, linkedFieldId.length() - 1);
-
-            jsonResult.addProperty("fieldId", fc.getFieldId());
-            jsonResult.addProperty("linkedFieldId", linkedFieldId);
-            jsonResult.addProperty("fieldName", fieldName);
-            response.add(jsonResult.toString());
+            response.add(Arrays.asList(
+                    fc.getFieldId().toString(),
+                    fieldManagement.getTableFieldById(fc.getFieldId()).getFieldName(),
+                    fc.getConstraintInfoJson()
+            ));
         }
-
         return new Gson().toJson(response);
     }
 
+
+    @GetMapping("/getSharedData")
+    @ResponseBody
+    public String getJsonData(@RequestParam("dataApiId") String dataApiId) {
+
+        Long dataApiIdLong = Long.parseLong(dataApiId);
+        String data = dataApiManagement.getDataApiByDataId(dataApiIdLong).getDataApiJson();
+        data = data.replaceAll(", ", ",<br><br>");
+
+        return data;
+
+    }
+
+
+    @GetMapping("/getUsersSavedData")
+    @ResponseBody
+    public String getUserSavedData() {
+
+        List<DataApi> userData = dataApiManagement.getDataApiByUserId(id());
+
+        List<Long> dataIds = new ArrayList<>();
+        for (DataApi data : userData) {
+            dataIds.add(data.getDataApiId());
+            System.out.println(data.getDataApiId());
+        }
+
+        return new Gson().toJson(dataIds);
+    }
+
+    @PostMapping("/saveJsonData")
+    @ResponseStatus(HttpStatus.OK)
+    public void generateJsonData(@RequestParam("jsonData") String jsonData) {
+
+        dataApiManagement.saveNewData(jsonData);
+
+    }
+    @PostMapping("/importData")
+    @ResponseStatus(HttpStatus.OK)
+    public void importJsonData(@RequestParam("dataLink") String dataLink){
+        
+    }
     public String username() {
         return SecurityContextHolder.getContext().getAuthentication().getName();
     }

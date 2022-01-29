@@ -56,11 +56,11 @@ public interface FieldRepo extends JpaRepository<TableField, Long> {
 
     @Modifying
     @Transactional
-    @Query("UPDATE TableField tf SET tf.nullable = false WHERE tf.fieldId = ?1")
-    public void setAsNotNullable(Long fieldId);
+    @Query("UPDATE TableField tf SET tf.notNull = false WHERE tf.fieldId = ?1")
+    public void setAsNullable(Long fieldId);
 
     @Modifying
     @Transactional
-    @Query("UPDATE TableField tf SET tf.nullable = true WHERE tf.fieldId = ?1")
-    public void setAsNullable(Long fieldId);
+    @Query("UPDATE TableField tf SET tf.notNull = true WHERE tf.fieldId = ?1")
+    public void setAsNotNull(Long fieldId);
 }

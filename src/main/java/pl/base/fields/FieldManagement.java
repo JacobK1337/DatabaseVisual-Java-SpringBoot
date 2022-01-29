@@ -37,14 +37,14 @@ public class FieldManagement {
     public void setAsUnique(Long fieldId){fieldRepo.setAsUnique(fieldId);}
     public void setAsNotUnique(Long fieldId){fieldRepo.setAsNotUnique(fieldId);}
 
-    public void setAsNotNullable(Long fieldId){fieldRepo.setAsNotNullable(fieldId);}
-
     public void setAsNullable(Long fieldId){fieldRepo.setAsNullable(fieldId);}
+
+    public void setAsNotNull(Long fieldId){fieldRepo.setAsNotNull(fieldId);}
 
     public void addNewField(Long tableId,
                             String fieldName,
                             String fieldType,
-                            Boolean nullable,
+                            Boolean notNull,
                             Boolean unique,
                             String defaultValue,
                             Boolean isPrimaryKey){
@@ -61,7 +61,7 @@ public class FieldManagement {
                     tableId,
                     fieldName,
                     fieldType,
-                    nullable,
+                    notNull,
                     unique,
                     defaultVal,
                     isPrimaryKey,
