@@ -11,6 +11,8 @@ public interface DataApiRepo extends JpaRepository<DataApi, Long> {
 
     public List<DataApi> getDataApiByUserId(Long userId);
 
+    public List<DataApi> getDataApiByTableId(Long tableId);
+
     public DataApi getDataApiByDataApiId(Long dataApiId);
 
 }

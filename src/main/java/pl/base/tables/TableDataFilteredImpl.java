@@ -30,7 +30,7 @@ public class TableDataFilteredImpl implements TableDataRepoCustom{
     public List<TableData> findFilteredTableData(Map<String, String> params) {
         Long tabId = Long.parseLong(params.get("tableId"));
 
-        String SQL_QUERY = "SELECT * FROM tables_data WHERE 1=1";
+        String SQL_QUERY = "SELECT * FROM tables_data WHERE table_id = " + tabId;
         Map<Integer, String> queryParameterName = new HashMap<>();
         int queryParameter = 1;
 

@@ -22,6 +22,10 @@ public class ConstraintManagement {
         return constraintRepo.findForeignKeysByDatabaseId(databaseId);
     }
 
+    public String getConstraintInfoJson(Long constraintId){
+        return constraintRepo.findByConstraintId(constraintId).getConstraintInfoJson();
+    }
+
     public FieldConstraint getForeignKeyByFieldId(Long fieldId) {
         return constraintRepo.findForeignKeyByFieldId(fieldId);
     }

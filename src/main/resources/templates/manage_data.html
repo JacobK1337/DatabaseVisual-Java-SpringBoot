@@ -10,6 +10,10 @@
           rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.js"></script>
     <script src="https://code.jquery.com/ui/1.13.0/jquery-ui.js"></script>
+    <script src="https://unpkg.com/ag-grid-community/dist/ag-grid-community.min.noStyle.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/ag-grid-community/dist/styles/ag-grid.css">
+    <link rel="stylesheet" href="https://unpkg.com/ag-grid-community/dist/styles/ag-theme-balham.css">
+
 </head>
 <body>
 
@@ -77,10 +81,10 @@
     <button class="data-manage-button">Your saved data</button>
     <div class="data-manage-content" id="user-saved-data"></div>
 
-    <button class="data-manage-button">Import data</button>
+    <button class="data-manage-button">Construct table by public saved data</button>
     <div class="data-manage-content">
         <form th:action="@{/importData}" method="post">
-            <p>Type correct HTML linking to data in Json: </p>
+            <p>Type correct data token (data must by public)</p>
             <p><input type="text" id="import-data-input"></p>
             <p><input type="submit" value="Import" class="table-config--submit"></p>
         </form>
@@ -102,8 +106,7 @@
             <input type="hidden" th:value="${tableId}" name="tableId">
         </form>
 
-        <form th:action ="@{/saveJsonData}" method="post" id="save-json-data">
-            <input type="hidden" th:value="${tableId}" name="tableId">
+        <form th:action="@{/saveJsonData}" method="post" id="save-json-data">
             <input type="submit" value="Save this data" id="save-data--submit">
         </form>
     </div>
@@ -121,6 +124,7 @@
         [3, 'unique']
     ]);
 
+
     $("#new-field-submit").on('click', (e) => {
         e.preventDefault();
         $.ajax({
@@ -132,16 +136,17 @@
             }
         });
     });
-    $("#save-data--submit").on('click', (e) =>{
+    $("#save-data--submit").on('click', (e) => {
         e.preventDefault();
         $.ajax({
-          type: 'POST',
-          url: '/shareJsonData',
-          data: {
-              'jsonData' : JSON.stringify(loadedData)
-          },
-            success: function(){
-              alert("Data successfully saved! You can now share it in the 'Share' tab!")
+            type: 'POST',
+            url: '/saveJsonData',
+            data: {
+                'jsonData': JSON.stringify(loadedData),
+                'tableId': tableId
+            },
+            success: function () {
+                alert("Data successfully saved! You can now share it in the 'Share' tab!")
                 reloadAllContents(tableId, dbId);
             }
 
@@ -194,6 +199,13 @@
 
     }
 
+    async function fetchTableDetails(tableId) {
+
+        let response = await fetch("/getTableDetails?tableId=" + tableId);
+        return await response.json();
+
+    }
+
     async function fetchPrimaryKeys(databaseId) {
         let response = await fetch("/getPrimaryKeys?databaseId=" + databaseId);
         return await response.json();
@@ -204,28 +216,32 @@
         return await response.json();
     }
 
-    async function fetchUserSavedData(){
+    async function fetchTableSavedData(tableId) {
 
-        let response = await fetch("/getUsersSavedData");
+        let response = await fetch("/getTableSavedData?tableId=" + tableId);
         return await response.json();
 
     }
+
     function reloadAllContents(tableId, databaseId) {
         reloadFilterMenu(tableId);
-        reloadConstraintMenu(tableId, databaseId);
+        reloadStructureMenu(tableId, databaseId);
         reloadAddDataMenu(tableId);
         reloadData(tableId);
-        reloadSavedDataMenu();
-
+        reloadSavedDataMenu(tableId);
+        reloadTableDetailsInfo(tableId);
     }
 
+    async function reloadTableDetailsInfo(tableId) {
+        const tableDetails = await fetchTableDetails(tableId);
+    }
 
-    async function reloadConstraintMenu(tableId, databaseId) {
+    async function reloadStructureMenu(tableId, databaseId) {
         const tableFields = await fetchTableFields(tableId);
         const primaryKeys = await fetchPrimaryKeys(databaseId);
         const foreignKeys = await fetchForeignKeys(databaseId);
 
-        loadConstraintMenu(tableId, tableFields, primaryKeys, foreignKeys);
+        loadStructureMenu(tableId, tableFields, primaryKeys, foreignKeys);
     }
 
     let loadedData;
@@ -259,12 +275,13 @@
         loadAddDataMenu(tableId, tableFields);
     }
 
-    async function reloadSavedDataMenu(){
-        const userSavedData = await fetchUserSavedData();
+    async function reloadSavedDataMenu(tableId) {
+        const userSavedData = await fetchTableSavedData(tableId);
 
         loadUserSavedData(userSavedData);
     }
-    function loadConstraintMenu(tableId, tableFields, primaryKeys, foreignKeys) {
+
+    function loadStructureMenu(tableId, tableFields, primaryKeys, foreignKeys) {
         const fieldConstrForm = document.getElementById('field-constr--form');
 
         const NUM_OF_DEF_CONSTR = constraintNameMapping.size;
@@ -287,7 +304,7 @@
                 cellTextContent = constraintNameMapping.get(i);
             }
 
-            if(cellTextContent === 'foreignkey')
+            if (cellTextContent === 'foreignkey')
                 constrMenuTableHeaders.insertCell();
 
             headersCell.appendChild(document.createTextNode(cellTextContent));
@@ -299,7 +316,7 @@
         for (let i = 0; i < foreignKeys.length; i++) {
             const currentForeignKeyInfo = JSON.parse(foreignKeys[i][2]);
 
-            const constraintFieldId = foreignKeys[i][0];
+            const constraintFieldId = parseInt(foreignKeys[i][0]);
             const referencedFieldId = currentForeignKeyInfo['linkedFieldId'];
             const onDeleteAction = currentForeignKeyInfo['ondelete'];
 
@@ -308,18 +325,20 @@
         }
 
         for (let i = 0; i < tableFields.length; i++) {
+            const currentTableFieldInfo = JSON.parse(tableFields[i]);
+
             const fieldConstrRow = constrMenuTable.insertRow();
-            const fieldId = tableFields[i][0];
-            const fieldName = tableFields[i][2];
-            const isNotNull = tableFields[i][3];
-            const isUnique = tableFields[i][4];
-            const isPrimaryKey = tableFields[i][5];
+            const fieldId = currentTableFieldInfo['field_id'];
+            const fieldName = currentTableFieldInfo['name'];
+            const isNotNull = currentTableFieldInfo['not_null'];
+            const isUnique = currentTableFieldInfo['is_unique'];
+            const isPrimaryKey = currentTableFieldInfo['is_primary_key'];
 
             for (let j = 0; j <= NUM_OF_DEF_CONSTR; j++) {
                 const fieldConstrCell = fieldConstrRow.insertCell();
 
                 if (j === 0)
-                    fieldConstrCell.appendChild(document.createTextNode(fieldName)); // name
+                    fieldConstrCell.appendChild(document.createTextNode(fieldName));
 
                 else {
                     const constrName = constraintNameMapping.get(j);
@@ -330,10 +349,10 @@
                             uniqueCheckButton.type = 'checkbox';
                             uniqueCheckButton.id = 'uniq-checkbutton-' + fieldId;
                             uniqueCheckButton.name = 'isUnique' + fieldId;
-                            if (isUnique === 'true')
+                            if (isUnique === true)
                                 uniqueCheckButton.checked = true;
 
-                            if (isPrimaryKey === 'true')
+                            if (isPrimaryKey === true)
                                 uniqueCheckButton.disabled = true;
 
                             fieldConstrCell.appendChild(uniqueCheckButton);
@@ -345,10 +364,10 @@
                             nullCheckButton.type = 'checkbox';
                             nullCheckButton.id = 'null-checkbutton-' + fieldId;
                             nullCheckButton.name = 'isNotNull' + fieldId;
-                            if (isNotNull === 'true')
+                            if (isNotNull === true)
                                 nullCheckButton.checked = true;
 
-                            if (isPrimaryKey === 'true')
+                            if (isPrimaryKey === true)
                                 nullCheckButton.disabled = true;
                             fieldConstrCell.appendChild(nullCheckButton);
                             break;
@@ -400,7 +419,7 @@
                             const onDeleteActionSelect = document.createElement('select');
                             onDeleteActionSelect.id = 'on-delete-' + fieldId;
                             onDeleteActionSelect.name = 'onDelete' + fieldId;
-                            if(fkSelect.value === 'None')
+                            if (fkSelect.value === 'None')
                                 onDeleteActionSelect.style.visibility = 'hidden';
 
                             const onDeleteOptionCascade = document.createElement('option');
@@ -414,10 +433,10 @@
                             onDeleteActionSelect.appendChild(onDeleteOptionCascade);
                             onDeleteActionSelect.appendChild(onDeleteOptionSetNull);
 
-                            if(onDeleteActionMapping.get(fieldId) === 'cascade')
+                            if (onDeleteActionMapping.get(fieldId) === 'cascade')
                                 onDeleteOptionCascade.selected = true;
 
-                            if(onDeleteActionMapping.get(fieldId) === 'setnull')
+                            if (onDeleteActionMapping.get(fieldId) === 'setnull')
                                 onDeleteOptionSetNull.selected = true;
 
 
@@ -433,9 +452,11 @@
         }
 
         const fieldConstrSubmit = document.createElement('input');
+
         fieldConstrSubmit.type = 'submit';
         fieldConstrSubmit.value = 'Update table structure';
         fieldConstrSubmit.classList.add("table-config--submit");
+
         fieldConstrForm.appendChild(constrMenuTable);
         fieldConstrForm.appendChild(fieldConstrSubmit);
 
@@ -479,14 +500,16 @@
         }
 
         for (let i = 0; i < tableFields.length; i++) {
+            const currentTableFieldInfo = JSON.parse(tableFields[i]);
+
             const tableRow = filterOptionsTable.insertRow();
 
             const fieldName = tableRow.insertCell();
-            fieldName.appendChild(document.createTextNode(tableFields[i][2]));
+            fieldName.appendChild(document.createTextNode(currentTableFieldInfo['name']));
 
             const comparator = tableRow.insertCell();
             const comparatorOptionList = document.createElement('select');
-            comparatorOptionList.name = tableFields[i][0] + 'comparator';
+            comparatorOptionList.name = currentTableFieldInfo['field_id'] + 'comparator';
 
             const comparatorOptionNoFilter = document.createElement('option');
             comparatorOptionNoFilter.value = 'null';
@@ -512,15 +535,15 @@
             comparatorOptionList.appendChild(comparatorOptionEqual);
             comparatorOptionList.appendChild(comparatorOptionNotEqual);
 
-            if (tableFields[i][1] === 'int') comparatorOptionList.appendChild(comparatorOptionSmaller);
-            if (tableFields[i][1] === 'int') comparatorOptionList.appendChild(comparatorOptionGreater);
+            if (currentTableFieldInfo['type'] === 'int') comparatorOptionList.appendChild(comparatorOptionSmaller);
+            if (currentTableFieldInfo['type'] === 'int') comparatorOptionList.appendChild(comparatorOptionGreater);
 
             comparator.appendChild(comparatorOptionList);
 
             const filter = tableRow.insertCell();
             const filterValue = document.createElement('input');
             filterValue.type = 'text';
-            filterValue.name = tableFields[i][0] + 'filterValue';
+            filterValue.name = currentTableFieldInfo['field_id'] + 'filterValue';
 
             filter.appendChild(filterValue);
         }
@@ -542,8 +565,9 @@
                 type: 'get',
                 data: $(getFilteredDataForm).serialize(),
                 success: function (response) {
-                    const filteredDataResponse = JSON.parse(response);
-                    reloadDataFiltered(tableId, filteredDataResponse);
+                    const filteredDataJson = JSON.parse(response);
+                    reloadDataFiltered(tableId, filteredDataJson);
+
                 }
             });
         });
@@ -557,7 +581,9 @@
         const addDataMenuTable = document.createElement('table');
 
         for (let i = 0; i < tableFields.length; i++) {
-            const fieldName = tableFields[i][2];
+            const currentTableFieldInfo = JSON.parse(tableFields[i]);
+
+            const fieldName = currentTableFieldInfo['name'];
 
             const tableRow = addDataMenuTable.insertRow();
 
@@ -594,32 +620,47 @@
             });
         });
     }
-    function loadUserSavedData(userSavedData){
+
+    function loadUserSavedData(userSavedData) {
         const userSavedDataDiv = document.getElementById('user-saved-data');
 
-        //const userSavedDataTable = document.createElement('table');
-        //clearForm(userSavedDataDiv);
+        const userSavedDataTable = document.createElement('table');
+        userSavedDataTable.id = 'user-saved-data-table';
 
+        while (userSavedDataDiv.firstChild) {
+            userSavedDataDiv.removeChild(userSavedDataDiv.lastChild);
+        }
 
-        for(let i = 0; i < userSavedData.length; i++){
+        const headers = [
+            'Link'
+        ];
+
+        const headerRow = userSavedDataTable.insertRow();
+        for (let i = 0; i < headers.length; i++) {
+            const headerCell = headerRow.insertCell();
+            headerCell.appendChild(document.createTextNode(headers[i]));
+        }
+
+        for (let i = 0; i < userSavedData.length; i++) {
+            const savedDataRow = userSavedDataTable.insertRow();
             const dataId = userSavedData[i];
 
             const getSavedDataButton = document.createElement('button');
             getSavedDataButton.textContent = 'Saved data number: ' + dataId;
             getSavedDataButton.classList.add('saved-data-link');
+            getSavedDataButton.type = 'button';
 
-            getSavedDataButton.addEventListener('click', () =>{
-               window.location = 'http://localhost:8080/getSharedData?dataApiId=' + dataId;
+            getSavedDataButton.addEventListener('click', () => {
+                window.location = 'http://localhost:8080/getSharedData?dataApiId=' + dataId;
             });
 
-            const setDataPrivateCheckbox = document.createElement('checkbox');
-            setDataPrivateCheckbox.name = 'saved-data-private-' + dataId;
+            const getSavedDataButtonCell = savedDataRow.insertCell();
+            getSavedDataButtonCell.appendChild(getSavedDataButton);
 
+            userSavedDataTable.appendChild(savedDataRow);
 
-            userSavedDataDiv.appendChild(getSavedDataButton);
-            userSavedDataDiv.appendChild(document.createElement('br'));
         }
-
+        userSavedDataDiv.appendChild(userSavedDataTable);
     }
 
     function loadData(freshData, tabId, tableFields) {
@@ -629,7 +670,6 @@
             dataList.removeChild(dataList.lastChild);
         }
 
-        //const responseJSON = JSON.parse(response);
 
         const newTable = document.createElement('table');
         newTable.classList.add('data-table');
@@ -640,76 +680,78 @@
 
         //init tableHeaders
         for (let i = 0; i < tableFields.length; i++) {
+            const currentTableFieldInfo = JSON.parse(tableFields[i]);
+
             const td = tHeader.insertCell();
+            td.style.color = 'orange';
 
-            if (tableFields[i][5] === 'false') {
+            td.addEventListener('mouseover', () => {
+                if (controlPressed && currentTableFieldInfo['is_primary_key'] === false) {
+                    td.style.backgroundColor = 'red';
+                }
+            });
 
-                td.addEventListener('mouseover', () => {
-                    if (controlPressed) {
+            td.addEventListener('mouseout', () => {
+                if (!td.classList.contains('to-delete'))
+                    td.style.backgroundColor = 'transparent';
+
+            });
+
+            td.addEventListener('click', () => {
+
+                if (controlPressed && currentTableFieldInfo['is_primary_key'] === false) {
+                    const deleteFieldForm = document.getElementById('delete-field--form');
+                    td.classList.toggle('to-delete');
+
+                    if (td.classList.contains('to-delete')) {
+
                         td.style.backgroundColor = 'red';
-                    }
-                });
+                        const fieldName = document.createElement('input');
+                        fieldName.type = 'hidden';
+                        fieldName.value = currentTableFieldInfo['name'];
+                        fieldName.name = currentTableFieldInfo['name'];
+                        fieldName.id = 'field-' + currentTableFieldInfo['name'];
 
-                td.addEventListener('mouseout', () => {
-                    if (!td.classList.contains('to-delete'))
+                        const deleteFieldSubmit = document.createElement('input');
+                        deleteFieldSubmit.type = 'submit';
+                        deleteFieldSubmit.value = 'Commit field delete';
+                        deleteFieldSubmit.id = 'delete-field--submit';
+
+                        if (!deleteFieldForm.contains(document.querySelector('#delete-field--submit')))
+                            deleteFieldForm.appendChild(deleteFieldSubmit);
+
+                        deleteFieldForm.appendChild(fieldName)
+
+                    } else {
                         td.style.backgroundColor = 'transparent';
-
-                });
-
-                td.addEventListener('click', () => {
-
-                    if (controlPressed) {
-                        const deleteFieldForm = document.getElementById('delete-field--form');
-                        td.classList.toggle('to-delete');
-
-                        if (td.classList.contains('to-delete')) {
-
-                            td.style.backgroundColor = 'red';
-                            const fieldName = document.createElement('input');
-                            fieldName.type = 'hidden';
-                            fieldName.value = tableFields[i][2];
-                            fieldName.name = tableFields[i][2];
-                            fieldName.id = 'field-' + tableFields[i][2];
-
-                            const deleteFieldSubmit = document.createElement('input');
-                            deleteFieldSubmit.type = 'submit';
-                            deleteFieldSubmit.value = 'Commit field delete';
-                            deleteFieldSubmit.id = 'delete-field--submit';
-
-                            if (!deleteFieldForm.contains(document.querySelector('#delete-field--submit')))
-                                deleteFieldForm.appendChild(deleteFieldSubmit);
-
-                            deleteFieldForm.appendChild(fieldName)
-
-                        } else {
-                            td.style.backgroundColor = 'transparent';
-                            deleteFieldForm.removeChild(deleteFieldForm.querySelector('#field-' + tableFields[i][2]));
-                            if (deleteFieldForm.contains(deleteFieldForm.querySelector('#delete-field--submit')) && deleteFieldForm.children.length === 2)
-                                deleteFieldForm.removeChild(deleteFieldForm.querySelector('#delete-field--submit'));
-                        }
-
-                        $(deleteFieldForm).on('click', (e) => {
-                            e.preventDefault();
-                            $.ajax({
-                                type: 'POST',
-                                url: '/deleteField',
-                                data: $(deleteFieldForm).serialize(),
-                                success: function () {
-                                    //we remove the save button after successful saving
-                                    clearForm(deleteFieldForm);
-                                    reloadAllContents(tabId, dbId);
-
-                                }
-                            });
-                        });
-
+                        deleteFieldForm.removeChild(deleteFieldForm.querySelector('#field-' + currentTableFieldInfo['name']));
+                        if (deleteFieldForm.contains(deleteFieldForm.querySelector('#delete-field--submit')) && deleteFieldForm.children.length === 2)
+                            deleteFieldForm.removeChild(deleteFieldForm.querySelector('#delete-field--submit'));
                     }
-                });
-            }
 
-            const tableFieldName = document.createTextNode(tableFields[i][2]);
+                    $(deleteFieldForm).on('click', (e) => {
+                        e.preventDefault();
+                        $.ajax({
+                            type: 'POST',
+                            url: '/deleteField',
+                            data: $(deleteFieldForm).serialize(),
+                            success: function () {
+                                //we remove the save button after successful saving
+                                clearForm(deleteFieldForm);
+                                reloadAllContents(tabId, dbId);
 
-            if (tableFields[i][5] === 'true')
+                            }
+                        });
+                    });
+                } else if (!controlPressed)
+                    sortTable(i);
+
+            });
+
+
+            const tableFieldName = document.createTextNode(currentTableFieldInfo['name']);
+
+            if (currentTableFieldInfo['is_primary_key'] === true)
                 td.style.color = 'gold';
             td.appendChild(tableFieldName);
 
@@ -727,8 +769,9 @@
             const currentValues = JSON.parse(freshData[i][1]);
 
             for (let j = 0; j < tableFields.length; j++) {
+                const currentTableFieldInfo = JSON.parse(tableFields[j]);
 
-                const currentField = tableFields[j][2];
+                const currentField = currentTableFieldInfo['name'];
                 const currentValue = currentValues[currentField];
 
                 const td = tRow.insertCell();
@@ -795,9 +838,10 @@
 
         for (let i = 1; i < rows.length; i++) {
             for (let j = 0; j < rows[i].cells.length - 1; j++) {
+                const currentTableFieldInfo = JSON.parse(tableFields[j]);
 
                 const currentCell = rows[i].cells[j];
-                const tableFieldName = tableFields[j][2];
+                const tableFieldName = currentTableFieldInfo['name'];
 
                 if (currentCell.innerText !== loadedData[i - 1][tableFieldName]) {
                     const cellValue = document.createElement('input');
@@ -896,11 +940,54 @@
 
     }
 
+    function sortTable(n) {
+        let table, rows, switching, i, x, y, shouldSwitch, dir, switchCount = 0;
+        table = document.getElementById("tableDataList");
+        switching = true;
+        dir = "asc";
+
+        while (switching) {
+
+            switching = false;
+            rows = table.rows;
+
+            for (i = 1; i < (rows.length - 1); i++) {
+                shouldSwitch = false;
+
+                x = rows[i].getElementsByTagName("TD")[n];
+                y = rows[i + 1].getElementsByTagName("TD")[n];
+
+                if (dir === "asc") {
+                    if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
+                        shouldSwitch = true;
+                        break;
+                    }
+                } else if (dir === "desc") {
+                    if (x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase()) {
+                        shouldSwitch = true;
+                        break;
+                    }
+                }
+            }
+            if (shouldSwitch) {
+
+                rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                switching = true;
+                switchCount++;
+            }
+            else {
+                if (switchCount === 0 && dir === "asc") {
+                    dir = "desc";
+                    switching = true;
+                }
+            }
+        }
+    }
+
     function clearForm(formToClear) {
 
         while (formToClear.lastElementChild.name !== 'tableId'
         && formToClear.lastElementChild.name !== 'databaseId') {
-
             formToClear.removeChild(formToClear.lastChild);
         }
 

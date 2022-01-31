@@ -23,6 +23,9 @@ public class DataApi {
     @Column(name = "user_id")
     private Long userId;
 
+    @Column(name = "table_id")
+    private Long tableId;
+
     @Column(name = "data_api_json")
     private String dataApiJson;
 

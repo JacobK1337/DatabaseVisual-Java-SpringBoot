@@ -285,7 +285,7 @@ html {
 }
 
 .data-table {
-    font-family: Orbitron, sans-serif;
+    font-family: Overpass, sans-serif;
     border-spacing: 20px;
     font-size: 50px;
     border: 1px solid black;
@@ -294,6 +294,7 @@ html {
 
 .data-table td {
     text-align: center;
+    cursor: pointer;
 }
 
 .filter-table {
@@ -307,16 +308,26 @@ html {
 }
 .saved-data-link{
     background-color: transparent;
-    font-family: Orbitron, sans-serif;
-    color: white;
+    font-family: Overpass, sans-serif;
+    color: gold;
     font-size: 30px;
     border: none;
     margin: 15px;
 
 }
 .saved-data-link:hover{
-    color: grey;
+    color: orangered;
 }
+#user-saved-data-table{
+    border-spacing: 15px;
+}
+
+#user-saved-data-table td{
+    text-align: center;
+}
+
+
+
 .constr-table {
     font-family: Overpass, sans-serif;
     border-spacing: 10px;

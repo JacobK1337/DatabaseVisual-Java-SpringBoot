@@ -6,13 +6,13 @@
     <link th:href="@{css/styles.css}" rel="stylesheet" type="text/css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300&family=Exo:wght@200&family=Lato:wght@300&family=Orbitron&family=Overpass:wght@200&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300&family=Exo:wght@200&family=Lato:wght@300&family=Orbitron&family=Overpass:wght@200&display=swap"
+          rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.js"></script>
     <script src="https://code.jquery.com/ui/1.13.0/jquery-ui.js"></script>
 
 </head>
 <body>
-
 
 
 <div id="panel-manage--div">
@@ -22,7 +22,7 @@
 
 <div id="usable-panel-area">
     <div id="create-table-panel">
-        <form th:action="@{/createNewTable}" method="post">
+        <form th:action="@{/createNewTable}" method="post" id="new-table--form">
             <input type="hidden" th:value="${databaseId}" id="databaseId" name="databaseId">
             <table style="border-spacing: 50px">
                 <tr>
@@ -53,8 +53,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td><input type="submit" value="Create new table"></td>
-                    <td></td>
+                    <td><input type="submit" value="Create new table" id="new-table--submit"></td>
                 </tr>
             </table>
 
@@ -91,6 +90,19 @@
     ]);
 
 
+    $('#new-table--submit').on('click', (e) => {
+        e.preventDefault();
+        $.ajax({
+            url: '/createNewTable',
+            type: 'POST',
+            data: $('#new-table--form').serialize(),
+            success: function () {
+                location.reload();
+            }
+        });
+    });
+
+
     window.onload = async () => {
         await drawAllTables(dbId);
         await drawAndSaveForeignKeys(dbId);
@@ -107,7 +119,7 @@
     }
 
     async function fetchTableDetails(databaseId) {
-        let response = await fetch("/tableDetails?databaseId=" + databaseId);
+        let response = await fetch("/getDatabaseTableDetails?databaseId=" + databaseId);
         return await response.json();
     }
 
@@ -122,11 +134,13 @@
         const tableDetails = await fetchTableDetails(databaseId);
 
         for (let i = 0; i < tableDetails.length; i++) {
-            let tableId = tableDetails[i][0];
-            let tableName = tableDetails[i][1];
-            let pageX = tableDetails[i][2];
-            let pageY = tableDetails[i][3];
-            let color = tableDetails[i][4];
+            const tableDetailsJson = JSON.parse(tableDetails[i]);
+
+            let tableId = tableDetailsJson['table_id'];
+            let tableName = tableDetailsJson['table_name'];
+            let pageX = tableDetailsJson['page_x'];
+            let pageY = tableDetailsJson['page_y'];
+            let color = tableDetailsJson['color'];
             await drawTable(pageX, pageY, tableName, tableId, color);
         }
 
@@ -144,11 +158,7 @@
             const primaryKeyCell = primaryKeyField.insertCell();
             primaryKeyCell.appendChild(document.createTextNode("PRIMARY KEY"));
             primaryKeyCell.style.color = 'gold';
-            //const primaryKeySign = document.createElement('span');
-            //primaryKeySign.appendChild(document.createTextNode(" |PRIMARY KEY|"));
-            //primaryKeySign.style.color = 'gold';
 
-            //primaryKeyField.appendChild(primaryKeySign);
         }
 
     }
@@ -163,8 +173,8 @@
             const currentForeignKeyInfo = JSON.parse(foreignKeys[i][2]);
 
             const constraintFieldId = foreignKeys[i][0];
-            const referencedFieldId = currentForeignKeyInfo['linkedFieldId'];
             const fieldName = foreignKeys[i][1];
+            const referencedFieldId = currentForeignKeyInfo['linkedFieldId'];
 
             relationList.push(new Connection(constraintFieldId, referencedFieldId));
 
@@ -192,10 +202,12 @@
 
     async function drawTable(x, y, name, tabId, color) {
         let newTable = document.createElement('div');
+
         newTable.classList.add('table');
         newTable.style.top = y + 'px';
         newTable.style.left = x + 'px';
         newTable.style.backgroundColor = color;
+
         newTable.id = tabId;
 
         let tableContent = document.createElement('table');
@@ -203,8 +215,8 @@
         let tableNameHeader = document.createElement('header');
         tableNameHeader.textContent = name;
         tableNameHeader.classList.add('table-name-headers');
-        tableNameHeader.addEventListener('dblclick', () =>{
-           alert("Clicked the header!");
+        tableNameHeader.addEventListener('dblclick', () => {
+            alert("Clicked the header!");
         });
         //const newTableName = document.createElement('p');
         //newTableName.classList.add('table-name');
@@ -217,8 +229,10 @@
         const tableFields = await fetchTableFields(tabId);
 
         for (let i = 0; i < tableFields.length; i++) {
-            const fieldName = tableFields[i][2];
-            const variableType = tableFields[i][1];
+            const currentTableFieldInfo = JSON.parse(tableFields[i]);
+
+            const fieldName = currentTableFieldInfo['name'];
+            const variableType = currentTableFieldInfo['type'];
 
             const fieldRow = tableContent.insertRow();
 
@@ -233,7 +247,6 @@
             const tableFieldVariable = document.createElement('span');
 
 
-
             tableFieldVariable.style.color = variableColorMapping.get(variableType);
 
             tableFieldVariable.appendChild(document.createTextNode(variableType + ": "));
@@ -241,9 +254,8 @@
 
             tableFieldElement.appendChild(document.createTextNode(fieldName));
 
-            fieldRow.id = 'tf' + tableFields[i][0];
-            //tableFieldElement.id = 'tf' + tableFields[i][0];
-            //newTable.appendChild(tableFieldElement);
+            fieldRow.id = 'tf' + currentTableFieldInfo['field_id'];
+
             tableContent.appendChild(fieldRow);
         }
 
@@ -309,7 +321,7 @@
                     'databaseId': dbId
                 },
                 success: () => {
-
+                    location.reload();
                 }
             });
         });

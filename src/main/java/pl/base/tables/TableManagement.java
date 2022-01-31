@@ -53,6 +53,22 @@ public class TableManagement {
         return tableDetailsRepo.findByTableId(tableId);
     }
 
+    public String getTableDetailsJson(Long tableId){
+        TableDetails currentTable = getTableDetails(tableId);
+        JsonObject jsonObject = new JsonObject();
+
+        String tableName = currentTable.getTableName();
+        String pageX = String.valueOf(currentTable.getPageX());
+        String pageY = String.valueOf(currentTable.getPageY());
+        String color = currentTable.getColor();
+
+        jsonObject.addProperty("table_id", tableId);
+        jsonObject.addProperty("table_name", tableName);
+        jsonObject.addProperty("page_x", pageX);
+        jsonObject.addProperty("page_y", pageY);
+        jsonObject.addProperty("color", color);
+        return jsonObject.toString();
+    }
     public void createNewTable(Long databaseId,
                                String tableName,
                                String primaryKeyName,
@@ -70,7 +86,7 @@ public class TableManagement {
                 tableName,
                 1000,
                 1000,
-                "green"
+                "dimgrey"
         );
 
         tableDetailsRepo.save(newTableDetails);

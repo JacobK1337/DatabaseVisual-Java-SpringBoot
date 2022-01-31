@@ -12,13 +12,18 @@ public class DataApiManagement {
     @Autowired
     private DataApiRepo dataApiRepo;
 
-    public void saveNewData(String data) {
+    public void saveNewData(String data, Long userId, Long tableId) {
 
-        DataApi newData = new DataApi();
-        newData.setDataApiJson(data);
+        DataApi newData = new DataApi(
+                0L,
+                userId,
+                tableId,
+                data
+        );
 
         dataApiRepo.save(newData);
     }
+    public List<DataApi> getDataApiByTableId(Long tableId){return dataApiRepo.getDataApiByTableId(tableId);}
 
     public List<DataApi> getDataApiByUserId(Long userId){
         return dataApiRepo.getDataApiByUserId(userId);
