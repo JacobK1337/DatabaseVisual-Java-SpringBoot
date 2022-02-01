@@ -6,14 +6,16 @@ import com.google.gson.JsonParser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import pl.base.constraints.ConstraintManagement;
-import pl.base.tables.TableData;
-import pl.base.tables.TableDataRepo;
+import pl.base.tables.*;
 
 @Component
 public class FieldManagement {
 
     @Autowired
     private FieldRepo fieldRepo;
+
+    @Autowired
+    private TableRepo tableRepo;
 
     @Autowired
     private TableDataRepo tableDataRepo;
@@ -116,29 +118,52 @@ public class FieldManagement {
 
         String defaultVal = "null";
 
+        Long databaseId = tableRepo
+                .getDatabaseTableByTableId(tableId)
+                .getDatabaseId();
+
         if (!defaultValue.equals(""))
             defaultVal = defaultValue;
 
         if (uniqueFieldName(tableId, fieldName)) {
 
-            TableField newField = new TableField(
-                    0L,
-                    tableId,
-                    fieldName,
-                    fieldType,
-                    notNull,
-                    unique,
-                    defaultVal,
-                    isPrimaryKey,
-                    false
-            );
+            TableField newField = new TableField();
+
+            newField.setTableId(tableId);
+
+            newField.setFieldName(fieldName);
+
+            newField.setFieldType(fieldType);
+
+            newField.setNotNull(notNull);
+
+            newField.setUnique(unique);
+
+            newField.setDefaultValue(defaultVal);
+
+            newField.setPrimaryKey(isPrimaryKey);
+
+            newField.setForeignKey(false);
 
             fieldRepo.save(newField);
-
-
             insertAddedFieldToAll(tableId, fieldName, defaultVal);
+
+           if(notNull)
+               constraintManagement.setNotNullConstraint(newField.getFieldId(), databaseId);
+
+           if(unique)
+               constraintManagement.setUniqueConstraint(newField.getFieldId(), databaseId);
+
+           if(isPrimaryKey)
+               constraintManagement.setPrimaryKeyConstraint(newField.getFieldId(), databaseId);
+
         }
 
+    }
+
+
+    public void deleteFieldsByTableId(Long tableId){
+        fieldRepo.deleteTableFieldsByTableId(tableId);
     }
 
     private Boolean foreignKeyValuesMatchPrimaryKey(TableField foreignKeyField,

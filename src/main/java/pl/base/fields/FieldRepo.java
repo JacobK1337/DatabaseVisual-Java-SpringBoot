@@ -31,6 +31,10 @@ public interface FieldRepo extends JpaRepository<TableField, Long> {
 
     @Modifying
     @Transactional
+    public void deleteTableFieldsByTableId(Long tableId);
+
+    @Modifying
+    @Transactional
     @Query("UPDATE TableField tf SET tf.isPrimaryKey = true WHERE tf.fieldId = ?1")
     public void setFieldAsPrimaryKey(Long fieldId);
 

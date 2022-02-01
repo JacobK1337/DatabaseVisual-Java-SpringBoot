@@ -31,4 +31,8 @@ public interface TableDataRepo extends JpaRepository<TableData, Long> {
     @Modifying
     @Transactional
     public void deleteTableDataByDataId(Long dataId);
+
+    @Modifying
+    @Transactional
+    public void deleteTableDatasByTableId(Long tableId);
 }

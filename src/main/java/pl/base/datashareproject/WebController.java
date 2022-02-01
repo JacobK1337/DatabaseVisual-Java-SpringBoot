@@ -24,6 +24,7 @@ import pl.base.tables.TableData;
 import pl.base.tables.TableManagement;
 import pl.base.user.UserManagement;
 
+import java.text.NumberFormat;
 import java.util.*;
 
 @Controller
@@ -127,7 +128,9 @@ public class WebController {
     }
 
     @GetMapping("/manage_data")
-    public ModelAndView manageData(@RequestParam("tableId") String tableId, @RequestParam("databaseId") String databaseId) {
+    public ModelAndView manageData(@RequestParam("tableId") String tableId,
+                                   @RequestParam("databaseId") String databaseId) {
+
         ModelAndView manageDataPage = new ModelAndView("manage_data");
         manageDataPage.addObject("tableId", tableId);
         manageDataPage.addObject("databaseId", databaseId);
@@ -219,23 +222,6 @@ public class WebController {
         }
     }
 
-    @PostMapping("/updateStyle")
-    @ResponseStatus(HttpStatus.OK)
-    @ResponseBody
-    public void updateStyle(@RequestParam("tableId") String tableId,
-                            @RequestParam("tableStyleColor") String tableStyleColor,
-                            @RequestParam("newTableName") String newTableName) {
-
-        Long tableIdL = Long.parseLong(tableId);
-
-        tabManagement.updateTableColor(tableIdL, tableStyleColor);
-
-        tabManagement.updateTableName(tableIdL, newTableName);
-
-
-    }
-
-
     @PostMapping("/updateConstraints")
     @ResponseStatus(HttpStatus.OK)
     @ResponseBody
@@ -312,12 +298,43 @@ public class WebController {
         params
                 .entrySet()
                 .stream()
+                .filter(entry -> entry.getKey().startsWith("dataId-"))
+                .forEach(entry ->{
+                    Long dataId = Long.parseLong(entry.getValue());
+                    tabManagement.deleteJsonData(tableId, databaseId, dataId);
+                });
+
+                /*
                 .forEach(entry -> {
-                    if (!entry.getKey().equals("databaseId") && !entry.getKey().equals("tableId")) {
+                    if (entry.getKey().startsWith("dataId-")) {
                         Long dataId = Long.parseLong(entry.getValue());
                         tabManagement.deleteJsonData(tableId, databaseId, dataId);
                     }
                 });
+
+                 */
+    }
+
+    @PostMapping("/deleteSavedData")
+    @ResponseStatus(HttpStatus.OK)
+    public void deleteSavedData(@RequestParam Map<String, String> params) {
+        params
+                .entrySet()
+                .stream()
+                .filter(entry -> entry.getKey().startsWith("savedDataId-"))
+                .forEach(entry ->{
+                    Long savedDataId = Long.parseLong(entry.getValue());
+                    dataApiManagement.deleteSavedData(savedDataId);
+                });
+                /*
+                .forEach(entry -> {
+                    if (entry.getKey().startsWith("savedDataId-")) {
+                        Long savedDataId = Long.parseLong(entry.getValue());
+                        dataApiManagement.deleteSavedData(savedDataId);
+                    }
+                });
+
+                 */
     }
 
     @PostMapping("/addData")
@@ -477,15 +494,30 @@ public class WebController {
                                  @RequestParam("tableId") String tableId) {
 
         Long tableIdLong = Long.parseLong(tableId);
+        Long primaryKeyFieldId = tabManagement.getPrimaryKeyFieldId(tableIdLong);
+        String primaryKeyName = fieldManagement.getTableFieldById(primaryKeyFieldId).getFieldName();
 
-        dataApiManagement.saveNewData(jsonData, id(), tableIdLong);
+        dataApiManagement.saveNewData(jsonData, id(), tableIdLong, primaryKeyName);
 
     }
 
     @PostMapping("/importData")
     @ResponseStatus(HttpStatus.OK)
-    public void importJsonData(@RequestParam("dataLink") String dataLink) {
+    public void importJsonData(@RequestParam("dataToken") String dataToken,
+                               @RequestParam("tableId") String tableId) {
 
+        long dataTokenLong;
+        long tableIdLong;
+
+        try{
+            dataTokenLong = Long.parseLong(dataToken);
+            tableIdLong = Long.parseLong(tableId);
+            tabManagement.importDataByDataApi(tableIdLong, dataTokenLong);
+        }
+
+        catch(NumberFormatException nfe){
+            System.out.println(nfe.getMessage());
+        }
     }
 
     public String username() {

@@ -1,12 +1,15 @@
 package pl.base.tables;
 
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import pl.base.constraints.ConstraintManagement;
 import pl.base.constraints.FieldConstraint;
+import pl.base.dataApi.DataApi;
+import pl.base.dataApi.DataApiManagement;
 import pl.base.fields.FieldManagement;
 import pl.base.fields.FieldRepo;
 import pl.base.fields.TableField;
@@ -15,6 +18,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
 
 @Component
 public class TableManagement {
@@ -39,6 +43,9 @@ public class TableManagement {
 
     @Autowired
     private FieldManagement fieldManagement;
+
+    @Autowired
+    DataApiManagement dataApiManagement;
 
     public List<DatabaseTable> getDatabaseTables(Long databaseId) {
         return tableRepo.findByDatabaseId(databaseId);
@@ -91,19 +98,15 @@ public class TableManagement {
 
         tableDetailsRepo.save(newTableDetails);
 
-        fieldManagement.addNewField(newTableId,
+        fieldManagement.addNewField(
+                newTableId,
                 primaryKeyName,
                 primaryKeyType,
-                false,
                 true,
-                "null",
+                true,
+                "",
                 true);
 
-        Long newPrimaryKeyId = fieldRepo.
-                findTableFieldPrimaryKey(newTableId).
-                getFieldId();
-
-        constraintManagement.setPrimaryKeyConstraint(newPrimaryKeyId, databaseId);
     }
 
     public List<List<String>> getTableData(Long tableId) {
@@ -179,7 +182,98 @@ public class TableManagement {
         //tableDataRepo.deleteTableDataByDataId(dataId);
     }
 
-    public void commitDelete(Long dataId) {
+    public void importDataByDataApi(Long tableId,
+                                    Long dataApiId){
+
+        fieldRepo.deleteTableFieldsByTableId(tableId);
+        tableDataRepo.deleteTableDatasByTableId(tableId);
+
+        DataApi importedData = dataApiManagement.getDataApiByDataId(dataApiId);
+        String primaryKeyName = importedData.getPrimaryKeyName();
+
+        String data = importedData.getDataApiJson();
+
+        JsonArray dataJson = new JsonParser()
+                .parse(data).getAsJsonArray();
+
+        List<String> tableFields = dataJson.
+                get(0)
+                .getAsJsonObject()
+                .keySet()
+                .stream().toList();
+
+        for(String key : tableFields){
+
+            String fieldType = autoFieldType(key, dataJson);
+            boolean isPrimaryKey = false;
+            boolean unique = false;
+            boolean notNull = false;
+
+            if(key.equals(primaryKeyName)){
+                isPrimaryKey = true;
+                unique = true;
+                notNull = true;
+            }
+
+            fieldManagement.addNewField(
+                    tableId,
+                    key,
+                    fieldType,
+                    notNull,
+                    unique,
+                    "",
+                    isPrimaryKey);
+        }
+
+        for(int i = 0; i < dataJson.size(); i++){
+            JsonObject jsonValue = dataJson.get(i).getAsJsonObject();
+            String jsonData = jsonValue.toString();
+
+            TableData newData = new TableData(
+                    0L,
+                    tableId,
+                    jsonData
+            );
+
+            tableDataRepo.save(newData);
+        }
+    }
+
+    ///TO_FIX
+    private String autoFieldType(String fieldName,
+                                     JsonArray data){
+
+        boolean isInteger = IntStream
+                .range(0, data.size())
+                .mapToObj(data::get)
+                .filter(i -> i
+                        .getAsJsonObject()
+                        .toString()
+                        .equals(fieldName))
+                .allMatch(i -> {
+
+                   JsonObject currentData = i
+                           .getAsJsonObject();
+
+                   String currentDataValue = currentData
+                           .get(fieldName)
+                           .toString();
+
+                   currentDataValue = currentDataValue.substring(1, currentDataValue.length() - 1);
+
+                   return isInteger(currentDataValue);
+
+                });
+
+        if(isInteger)
+            return "int";
+
+        else
+            return "varchar";
+
+    }
+
+    private void commitDelete(Long dataId) {
         tableDataRepo.deleteTableDataByDataId(dataId);
     }
 
@@ -391,6 +485,7 @@ public class TableManagement {
                         .getFieldId();
     }
 
+
     private Boolean isReferencedByForeignKey(Long fieldId, Long databaseId) {
         return
                 constraintManagement.getForeignKeysByDatabaseId(databaseId)
@@ -464,6 +559,8 @@ public class TableManagement {
 
 
     }
+
+
 
     private Boolean isUniqueField(Long tableId, String fieldName, String toVerify) {
 

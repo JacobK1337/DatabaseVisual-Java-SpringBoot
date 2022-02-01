@@ -12,12 +12,13 @@ public class DataApiManagement {
     @Autowired
     private DataApiRepo dataApiRepo;
 
-    public void saveNewData(String data, Long userId, Long tableId) {
+    public void saveNewData(String data, Long userId, Long tableId, String primaryKeyName) {
 
         DataApi newData = new DataApi(
                 0L,
                 userId,
                 tableId,
+                primaryKeyName,
                 data
         );
 
@@ -32,4 +33,6 @@ public class DataApiManagement {
     public DataApi getDataApiByDataId(Long dataApiId){
         return dataApiRepo.getDataApiByDataApiId(dataApiId);
     }
+
+    public void deleteSavedData(Long dataApiId){dataApiRepo.deleteDataApiByDataApiId(dataApiId);}
 }

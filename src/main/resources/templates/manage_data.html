@@ -79,14 +79,17 @@
         </form>
     </div>
     <button class="data-manage-button">Your saved data</button>
-    <div class="data-manage-content" id="user-saved-data"></div>
+    <div class="data-manage-content" id="user-saved-data">
+        <form th:action="@{/deleteSavedData}" method="post" id="delete-saved-data--form"></form>
+    </div>
 
-    <button class="data-manage-button">Construct table by public saved data</button>
+    <button class="data-manage-button">Construct table by data token</button>
     <div class="data-manage-content">
         <form th:action="@{/importData}" method="post">
-            <p>Type correct data token (data must by public)</p>
-            <p><input type="text" id="import-data-input"></p>
-            <p><input type="submit" value="Import" class="table-config--submit"></p>
+            <input type="hidden" th:value="${tableId}" name="tableId">
+            <p>Type correct data token</p>
+            <p><input type="text" id="import-data-input" name="dataToken"></p>
+            <p><input type="submit" value="Construct" class="table-config--submit"></p>
         </form>
     </div>
     <div id="data-results">
@@ -278,7 +281,7 @@
     async function reloadSavedDataMenu(tableId) {
         const userSavedData = await fetchTableSavedData(tableId);
 
-        loadUserSavedData(userSavedData);
+        loadUserSavedData(userSavedData, tableId);
     }
 
     function loadStructureMenu(tableId, tableFields, primaryKeys, foreignKeys) {
@@ -579,6 +582,7 @@
         clearForm(addDataForm);
 
         const addDataMenuTable = document.createElement('table');
+        addDataMenuTable.style.borderSpacing = '10px';
 
         for (let i = 0; i < tableFields.length; i++) {
             const currentTableFieldInfo = JSON.parse(tableFields[i]);
@@ -621,18 +625,18 @@
         });
     }
 
-    function loadUserSavedData(userSavedData) {
-        const userSavedDataDiv = document.getElementById('user-saved-data');
+    function loadUserSavedData(userSavedData, tableId) {
+        const deleteSavedDataForm = document.getElementById('delete-saved-data--form');
+
+
+        clearForm(deleteSavedDataForm);
 
         const userSavedDataTable = document.createElement('table');
         userSavedDataTable.id = 'user-saved-data-table';
 
-        while (userSavedDataDiv.firstChild) {
-            userSavedDataDiv.removeChild(userSavedDataDiv.lastChild);
-        }
-
         const headers = [
-            'Link'
+            'Link',
+            'Delete'
         ];
 
         const headerRow = userSavedDataTable.insertRow();
@@ -644,6 +648,7 @@
         for (let i = 0; i < userSavedData.length; i++) {
             const savedDataRow = userSavedDataTable.insertRow();
             const dataId = userSavedData[i];
+            savedDataRow.id = 'saved-datarow-' + dataId;
 
             const getSavedDataButton = document.createElement('button');
             getSavedDataButton.textContent = 'Saved data number: ' + dataId;
@@ -657,10 +662,25 @@
             const getSavedDataButtonCell = savedDataRow.insertCell();
             getSavedDataButtonCell.appendChild(getSavedDataButton);
 
+           const deleteSavedDataButton = document.createElement('button');
+           deleteSavedDataButton.textContent = 'DELETE';
+           deleteSavedDataButton.classList.add('delete-data-button');
+           deleteSavedDataButton.type = 'button';
+            deleteSavedDataButton.value = dataId;
+
+           const deleteSavedDataButtonCell = savedDataRow.insertCell();
+           deleteSavedDataButtonCell.appendChild(deleteSavedDataButton);
+
+
+           deleteSavedDataButton.addEventListener('click', (src) =>{
+               applySavedDataForDelete(src, tableId);
+           });
+
+
             userSavedDataTable.appendChild(savedDataRow);
 
         }
-        userSavedDataDiv.appendChild(userSavedDataTable);
+        deleteSavedDataForm.appendChild(userSavedDataTable);
     }
 
     function loadData(freshData, tabId, tableFields) {
@@ -812,7 +832,7 @@
         dataList.appendChild(newTable);
     }
 
-    function applyChangesToDataList(tableFields, tabId) {
+    function applyChangesToDataList(tableFields, tableId) {
         const table = document.getElementById("tableDataList");
 
         const modifyDataForm = document.getElementById('modify-data--form');
@@ -876,7 +896,7 @@
                     success: function () {
 
                         clearForm(modifyDataForm);
-                        reloadData(tabId);
+                        reloadData(tableId);
 
                     }
                 });
@@ -886,7 +906,7 @@
 
     }
 
-    function applyDataForDelete(src, tabId) {
+    function applyDataForDelete(src, tableId) {
 
         const deleteDataForm = document.getElementById('delete-data--form');
         const sourceTarget = src.target;
@@ -925,7 +945,7 @@
                     success: function () {
 
                         clearForm(deleteDataForm);
-                        reloadData(tabId);
+                        reloadData(tableId);
 
                     }
                 });
@@ -937,6 +957,56 @@
             if (deleteDataForm.contains(deleteDataForm.querySelector('#commit-delete--submit')) && deleteDataForm.children.length === 3)
                 deleteDataForm.removeChild(deleteDataForm.querySelector('#commit-delete--submit'));
         }
+
+    }
+
+    function applySavedDataForDelete(src, tableId){
+        const deleteSavedDataForm = document.getElementById('delete-saved-data--form');
+        const sourceTarget = src.target;
+
+        sourceTarget.classList.toggle('delete-saved-data--active');
+        const commitDeleteButton = document.createElement('input');
+
+        commitDeleteButton.type = 'submit';
+        commitDeleteButton.value = 'Commit data delete';
+        commitDeleteButton.id = 'commit-saved-data-delete--submit';
+
+        const currentRow = document.getElementById('saved-datarow-' + sourceTarget.value);
+
+        if (sourceTarget.classList.contains('delete-saved-data--active')) {
+
+            currentRow.style.backgroundColor = 'red';
+            const savedDataId = document.createElement('input');
+
+            savedDataId.type = 'hidden';
+            savedDataId.name = 'savedDataId-' + sourceTarget.value;
+            savedDataId.id = 'savedDataId-' + sourceTarget.value;
+            savedDataId.value = sourceTarget.value;
+
+            deleteSavedDataForm.appendChild(savedDataId);
+
+            if (!deleteSavedDataForm.contains(document.querySelector('#commit-saved-data-delete--submit')))
+                deleteSavedDataForm.appendChild(commitDeleteButton);
+
+            $(commitDeleteButton).on('click', (e) => {
+                e.preventDefault();
+                $.ajax({
+                    type: 'POST',
+                    url: '/deleteSavedData',
+                    data: $(deleteSavedDataForm).serialize(),
+                    success: function () {
+                        reloadSavedDataMenu(tableId);
+                    }
+                });
+            });
+
+        } else {
+            currentRow.style.backgroundColor = 'transparent';
+            document.getElementById('savedDataId-' + sourceTarget.value).remove();
+            if (deleteSavedDataForm.contains(deleteSavedDataForm.querySelector('#commit-saved-data-delete--submit')) && deleteSavedDataForm.children.length === 2)
+                deleteSavedDataForm.removeChild(deleteSavedDataForm.querySelector('#commit-saved-data-delete--submit'));
+        }
+
 
     }
 
@@ -986,9 +1056,14 @@
 
     function clearForm(formToClear) {
 
-        while (formToClear.lastElementChild.name !== 'tableId'
-        && formToClear.lastElementChild.name !== 'databaseId') {
-            formToClear.removeChild(formToClear.lastChild);
+        while (formToClear.firstChild) {
+
+            if(formToClear.lastElementChild.name !== 'tableId' && formToClear.lastElementChild.name !== 'databaseId')
+                formToClear.removeChild(formToClear.lastChild);
+
+            else
+                break;
+
         }
 
     }

@@ -330,7 +330,7 @@ html {
 
 .constr-table {
     font-family: Overpass, sans-serif;
-    border-spacing: 10px;
+    border-spacing: 15px;
     color: white;
     font-size: 30px;
     border: 1px solid black;
@@ -338,7 +338,7 @@ html {
 
 .table-config--submit {
     font-family: Overpass, sans-serif;
-    font-size: 20px;
+    font-size: 35px;
     color: blueviolet;
     background-color: transparent;
     border: none;
@@ -363,7 +363,7 @@ html {
     color: blue;
 }
 
-#commit-delete--submit, #delete-field--submit {
+#commit-delete--submit, #delete-field--submit, #commit-saved-data-delete--submit {
     font-family: Orbitron, sans-serif;
     font-size: 40px;
     color: deepskyblue;
@@ -373,7 +373,7 @@ html {
     margin: 15px;
 }
 
-#commit-delete--submit:hover, #delete-field--submit:hover {
+#commit-delete--submit:hover, #delete-field--submit:hover, #commit-saved-data-delete--submit:hover {
     color: darkred;
 }
 
