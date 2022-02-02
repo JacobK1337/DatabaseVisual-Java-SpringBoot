@@ -85,11 +85,15 @@
 
     <button class="data-manage-button">Construct table by data token</button>
     <div class="data-manage-content">
-        <form th:action="@{/importData}" method="post">
+        <form th:action="@{/importData}" method="post" id="import-data--form">
+
             <input type="hidden" th:value="${tableId}" name="tableId">
+            <input type="hidden" th:value="${databaseId}" name="databaseId">
+
             <p>Type correct data token</p>
             <p><input type="text" id="import-data-input" name="dataToken"></p>
-            <p><input type="submit" value="Construct" class="table-config--submit"></p>
+            <p><input type="submit" value="Construct" class="table-config--submit" id="import-data-submit"></p>
+
         </form>
     </div>
     <div id="data-results">
@@ -127,6 +131,19 @@
         [3, 'unique']
     ]);
 
+
+    $("#import-data-submit").on('click', (e) =>{
+       e.preventDefault();
+       $.ajax({
+          type: 'POST',
+          url: '/importData',
+          data: $("#import-data--form").serialize(),
+          success: function(){
+              alert("Table successfully imported!")
+              reloadAllContents(tableId, dbId);
+          }
+       });
+    });
 
     $("#new-field-submit").on('click', (e) => {
         e.preventDefault();

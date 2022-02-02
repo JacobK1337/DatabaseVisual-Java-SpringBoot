@@ -60,7 +60,7 @@ public class TableManagement {
         return tableDetailsRepo.findByTableId(tableId);
     }
 
-    public String getTableDetailsJson(Long tableId){
+    public String getTableDetailsJson(Long tableId) {
         TableDetails currentTable = getTableDetails(tableId);
         JsonObject jsonObject = new JsonObject();
 
@@ -76,6 +76,7 @@ public class TableManagement {
         jsonObject.addProperty("color", color);
         return jsonObject.toString();
     }
+
     public void createNewTable(Long databaseId,
                                String tableName,
                                String primaryKeyName,
@@ -183,89 +184,92 @@ public class TableManagement {
     }
 
     public void importDataByDataApi(Long tableId,
-                                    Long dataApiId){
+                                    Long dataApiId,
+                                    Long databaseId) {
 
-        fieldRepo.deleteTableFieldsByTableId(tableId);
-        tableDataRepo.deleteTableDatasByTableId(tableId);
+        Long primaryKeyFieldId = getPrimaryKeyFieldId(tableId);
 
-        DataApi importedData = dataApiManagement.getDataApiByDataId(dataApiId);
-        String primaryKeyName = importedData.getPrimaryKeyName();
+        if (!isReferencedByForeignKey(primaryKeyFieldId, databaseId)) {
 
-        String data = importedData.getDataApiJson();
+            fieldRepo.deleteTableFieldsByTableId(tableId);
+            tableDataRepo.deleteTableDatasByTableId(tableId);
 
-        JsonArray dataJson = new JsonParser()
-                .parse(data).getAsJsonArray();
+            DataApi importedData = dataApiManagement.getDataApiByDataId(dataApiId);
+            String primaryKeyName = importedData.getPrimaryKeyName();
 
-        List<String> tableFields = dataJson.
-                get(0)
-                .getAsJsonObject()
-                .keySet()
-                .stream().toList();
+            String data = importedData.getDataApiJson();
 
-        for(String key : tableFields){
+            JsonArray dataJson = new JsonParser()
+                    .parse(data).getAsJsonArray();
 
-            String fieldType = autoFieldType(key, dataJson);
-            boolean isPrimaryKey = false;
-            boolean unique = false;
-            boolean notNull = false;
+            List<String> tableFields = dataJson.
+                    get(0)
+                    .getAsJsonObject()
+                    .keySet()
+                    .stream().toList();
 
-            if(key.equals(primaryKeyName)){
-                isPrimaryKey = true;
-                unique = true;
-                notNull = true;
+            for (String key : tableFields) {
+
+                String fieldType = autoFieldType(key, dataJson);
+                boolean isPrimaryKey = false;
+                boolean unique = false;
+                boolean notNull = false;
+
+                if (key.equals(primaryKeyName)) {
+                    isPrimaryKey = true;
+                    unique = true;
+                    notNull = true;
+                }
+
+                fieldManagement.addNewField(
+                        tableId,
+                        key,
+                        fieldType,
+                        notNull,
+                        unique,
+                        "",
+                        isPrimaryKey);
             }
 
-            fieldManagement.addNewField(
-                    tableId,
-                    key,
-                    fieldType,
-                    notNull,
-                    unique,
-                    "",
-                    isPrimaryKey);
+            for (int i = 0; i < dataJson.size(); i++) {
+                JsonObject jsonValue = dataJson.get(i).getAsJsonObject();
+                String jsonData = jsonValue.toString();
+
+                TableData newData = new TableData(
+                        0L,
+                        tableId,
+                        jsonData
+                );
+
+                tableDataRepo.save(newData);
+            }
         }
 
-        for(int i = 0; i < dataJson.size(); i++){
-            JsonObject jsonValue = dataJson.get(i).getAsJsonObject();
-            String jsonData = jsonValue.toString();
+        else
+            System.out.println("Cannot import - primary key is referenced in other table!");
 
-            TableData newData = new TableData(
-                    0L,
-                    tableId,
-                    jsonData
-            );
-
-            tableDataRepo.save(newData);
-        }
     }
 
-    ///TO_FIX
     private String autoFieldType(String fieldName,
-                                     JsonArray data){
+                                 JsonArray data) {
 
         boolean isInteger = IntStream
                 .range(0, data.size())
                 .mapToObj(data::get)
-                .filter(i -> i
-                        .getAsJsonObject()
-                        .toString()
-                        .equals(fieldName))
                 .allMatch(i -> {
+                    JsonObject currentData = i
+                            .getAsJsonObject();
 
-                   JsonObject currentData = i
-                           .getAsJsonObject();
+                    String currentDataValue = currentData
+                            .get(fieldName)
+                            .toString();
 
-                   String currentDataValue = currentData
-                           .get(fieldName)
-                           .toString();
+                    currentDataValue = currentDataValue.substring(1, currentDataValue.length() - 1);
 
-                   currentDataValue = currentDataValue.substring(1, currentDataValue.length() - 1);
-
-                   return isInteger(currentDataValue);
-
+                    return isInteger(currentDataValue);
                 });
 
-        if(isInteger)
+        if (isInteger)
             return "int";
 
         else
@@ -559,7 +563,6 @@ public class TableManagement {
 
 
     }
-
 
 
     private Boolean isUniqueField(Long tableId, String fieldName, String toVerify) {

@@ -116,7 +116,11 @@ public class FieldManagement {
                             String defaultValue,
                             Boolean isPrimaryKey) {
 
+
         String defaultVal = "null";
+
+        if(!notNull)
+            defaultVal = "";
 
         Long databaseId = tableRepo
                 .getDatabaseTableByTableId(tableId)
