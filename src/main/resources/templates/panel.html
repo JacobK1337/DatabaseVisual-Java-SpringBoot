@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Database Panel</title>
+    <link th:href="@{css/styles.css}" rel="stylesheet" type="text/css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300&family=Exo:wght@200&family=Lato:wght@300&family=Orbitron&family=Overpass:wght@200&display=swap"
+          rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.0/jquery-ui.js"></script>
+
+
+</head>
+<body>
+
+
+<div id="panel-manage--div">
+    <p>Database Visualization</p>
+</div>
+
+
+<div id="usable-panel-area">
+    <div id="create-table-panel">
+        <form th:action="@{/createNewTable}" method="post" id="new-table--form">
+            <input type="hidden" th:value="${databaseId}" id="databaseId" name="databaseId">
+            <table style="border-spacing: 50px">
+                <tr>
+                    <td>
+                        <label for="new-table-name">New table name: </label>
+                    </td>
+                    <td>
+                        <input type="text" id="new-table-name" name="tableName">
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label for="new-table-pk-name">Primary key name: </label>
+                    </td>
+                    <td>
+                        <input type="text" id="new-table-pk-name" name="primaryKeyName">
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label for="new-table-pk-type">Primary key type:</label>
+                    </td>
+                    <td>
+                        <select id="new-table-pk-type" name="primaryKeyType">
+                            <option value="int">Integer</option>
+                            <option value="varchar">Varchar</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td><input type="submit" value="Create new table" id="new-table--submit"></td>
+                </tr>
+            </table>
+
+        </form>
+    </div>
+    <svg width="100%" height="100%" id="relationSvg"></svg>
+</div>
+
+<script th:inline="javascript" type="text/javascript" th:src="@{/script/panel.js}"></script>
+
+</body>
+</html>

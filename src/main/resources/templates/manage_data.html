@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Manage data</title>
+    <link th:href="@{css/styles.css}" rel="stylesheet" type="text/css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300&family=Exo:wght@200&family=Lato:wght@300&family=Overpass:wght@200&display=swap"
+          rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.0/jquery-ui.js"></script>
+
+
+</head>
+<body>
+
+<div id="data-manage-container">
+
+    <button class="data-manage-button">Filter data</button>
+
+    <div class="data-manage-content">
+        <form th:action="@{/getFilteredTableData}" method="get" id="get-filtered-data--form">
+            <input type="hidden" th:value="${tableId}" name="tableId">
+        </form>
+    </div>
+
+    <button class="data-manage-button">Add new data</button>
+    <div class="data-manage-content">
+        <form th:action="@{/addData}" method="post" id="add-data--form">
+            <input type="hidden" th:value="${tableId}" name="tableId">
+        </form>
+    </div>
+
+    <button class="data-manage-button">Table structure</button>
+    <div class="data-manage-content" id="field-constr-content">
+        <form th:action="@{/updateConstraints}" method="post" id="field-constr--form">
+            <input type="hidden" th:value="${tableId}" name="tableId">
+            <input type="hidden" th:value="${databaseId}" name="databaseId" id='databaseId'>
+        </form>
+    </div>
+
+    <button class="data-manage-button">Add new field</button>
+    <div class="data-manage-content">
+        <form th:action="@{/addField}" method="post" id="add-field--form">
+            <input type="hidden" th:value="${tableId}" id="tableId" name="tableId">
+            <input type="hidden" th:value="${databaseId}" name="databaseId">
+            <p>
+                <label for="new-field-name">Field name:</label>
+                <input type="text" id="new-field-name" name="fieldName" minlength="3" maxlength="30">
+            </p>
+
+            <p>
+                <label for="new-field-type">Field type</label>
+                <select id="new-field-type" name="fieldType">
+                    <option value="int">Integer</option>
+                    <option value="varchar">Varchar</option>
+                </select>
+            </p>
+
+            <p>
+                <label for="new-field-nullable">Not null:</label>
+                <input type="checkbox" id="new-field-nullable" name="notNull" checked>
+            </p>
+            <p>
+                <label for="new-field-defaultval">Default value:</label>
+                <input type="text" id="new-field-defaultval" name="defaultValue" minlength="1" maxlength="50">
+            </p>
+            <p>
+                <label for="new-field-unique">Unique:</label>
+                <input type="checkbox" id="new-field-unique" name="unique">
+            </p>
+
+            <p>
+                <input type="submit" value="Add new field" id="new-field-submit" class="table-config--submit">
+            </p>
+
+        </form>
+    </div>
+    <button class="data-manage-button">Your saved data</button>
+    <div class="data-manage-content" id="user-saved-data">
+        <form th:action="@{/deleteSavedData}" method="post" id="delete-saved-data--form"></form>
+    </div>
+
+    <button class="data-manage-button">Construct table by data token</button>
+    <div class="data-manage-content">
+        <form th:action="@{/importData}" method="post" id="import-data--form">
+
+            <input type="hidden" th:value="${tableId}" name="tableId">
+            <input type="hidden" th:value="${databaseId}" name="databaseId">
+
+            <p>Type correct data token</p>
+            <p><input type="text" id="import-data-input" name="dataToken"></p>
+            <p><input type="submit" value="Construct" class="table-config--submit" id="import-data-submit"></p>
+
+        </form>
+    </div>
+    <div id="data-results">
+        <header id="data-list-header">Data results:</header>
+        <div id="data-list"></div>
+
+        <form th:action="@{/modifyData}" method="post" id="modify-data--form">
+            <input type="hidden" th:value="${tableId}" name="tableId">
+        </form>
+
+        <form th:action="@{/deleteData}" method="post" id="delete-data--form">
+            <input type="hidden" th:value="${tableId}" name="tableId">
+            <input type="hidden" th:value="${databaseId}" name="databaseId">
+        </form>
+
+        <form th:action="@{/deleteField}" method="post" id="delete-field--form">
+            <input type="hidden" th:value="${tableId}" name="tableId">
+        </form>
+
+        <form th:action="@{/saveJsonData}" method="post" id="save-json-data">
+            <input type="submit" value="Save this data" id="save-data--submit">
+        </form>
+    </div>
+
+</div>
+
+<script th:inline="javascript" type="text/javascript" th:src="@{/script/manage_data.js}"></script>
+
+</body>
+
+</html>
