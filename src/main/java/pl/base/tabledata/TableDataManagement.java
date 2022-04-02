@@ -15,7 +15,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
 @Component
@@ -351,7 +350,6 @@ public class TableDataManagement {
         Long tableId = tableField.getTableId();
         String fieldType = tableField.getFieldType();
         String fieldName = tableField.getFieldName();
-        boolean isNotNull = tableField.isNotNull();
         boolean unique = tableField.isUnique();
         boolean isForeignKey = tableField.isForeignKey();
 

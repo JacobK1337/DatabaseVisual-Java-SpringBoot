@@ -127,7 +127,9 @@ public class WebController {
 
         try {
             databaseIdLong = Long.parseLong(databaseId);
-            if (!validUserInput(tableName) || !validUserInput(primaryKeyName)) throw new Exception("Invalid input");
+            if ((!validUserInput(tableName) || !validUserInput(primaryKeyName))
+                    || tableName.equals("") || primaryKeyName.equals("")) throw new Exception("Invalid input");
+
 
             tabManagement.createNewTable(
                     databaseIdLong,
@@ -136,7 +138,7 @@ public class WebController {
                     primaryKeyType);
 
         } catch (Exception nfe) {
-            nfe.printStackTrace();
+            System.out.println(nfe.getMessage() + ": only numbers and letters");
         }
     }
 
@@ -278,21 +280,23 @@ public class WebController {
                 Long dataId = Long.parseLong(td.get(0));
                 JsonObject newData = new JsonObject();
 
-                for (TableField tf : fieldManagement.getFieldsByTableId(tableIdLong)) {
+                for (var tf : fieldManagement.getFieldsByTableId(tableIdLong)) {
 
                     String currentKey = tf.getFieldName();
                     String newParam = params.get(dataId + currentKey);
 
-                    if (!validUserInput(newParam)) throw new Exception("Invalid input");
 
-                    newData.addProperty(currentKey, newParam);
-                    tableDataManagement.modifyJsonData(dataId, tableIdLong, currentKey, newParam);
+                    if(newParam != null){
+                        if (!validUserInput(newParam)) throw new Exception("Invalid input");
+                        newData.addProperty(currentKey, newParam);
+                        tableDataManagement.modifyJsonData(dataId, tableIdLong, currentKey, newParam);
+                    }
 
                 }
 
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println(e.getMessage() + ": only numbers and letters");
         }
 
 
@@ -445,7 +449,7 @@ public class WebController {
             tableDataManagement.addJsonData(tableIdLong, newData);
 
         } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println(e.getMessage() + ": only numbers and letters");
         }
 
     }
@@ -493,7 +497,8 @@ public class WebController {
             Boolean notNullVar = notNull != null;
             Boolean uniqueVar = unique != null;
 
-            if (!validUserInput(fieldName)) throw new Exception("Invalid input");
+            if (!validUserInput(fieldName)
+                    || fieldName.equals("")) throw new Exception("Invalid input");
 
             fieldManagement.addNewField(
                     tableIdLong,
@@ -506,7 +511,7 @@ public class WebController {
                     false);
 
         } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println(e.getMessage() + ": only numbers and letters");
         }
 
 
@@ -711,8 +716,8 @@ public class WebController {
 
     private Boolean validUserInput(String userInput) {
 
-        Pattern p = Pattern.compile("[A-Za-z0-9]+");
-
-        return userInput != null && p.matcher(userInput).matches();
+        //accepting only numbers and letters, empty string
+        Pattern p = Pattern.compile("^[A-Za-z0-9 ]*$");
+        return p.matcher(userInput).matches();
     }
 }
