@@ -80,7 +80,8 @@ public class FieldManagement {
 
         if (foreignKeyField.getFieldType().equals(primaryKeyField.getFieldType())
                 && foreignKeyValuesMatchPrimaryKey(foreignKeyField, primaryKeyField)
-                && !(onDeleteAction.equals("setnull") && foreignKeyField.isNotNull())) {
+                && (!(onDeleteAction.equals("setnull") && foreignKeyField.isNotNull())
+                || !foreignKeyField.isNotNull())) {
 
             Long foreignKeyFieldId = foreignKeyField.getFieldId();
             Long primaryKeyFieldId = primaryKeyField.getFieldId();

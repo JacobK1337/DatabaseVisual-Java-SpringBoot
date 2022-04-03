@@ -21,6 +21,7 @@ import pl.base.user.UserRepo;
 @SpringBootApplication
 @EnableJpaRepositories(basePackageClasses = {UserRepo.class, ConstraintRepo.class, DatabaseRepo.class, FieldRepo.class, TableRepo.class, TableDataRepo.class, TableDetails.class, DataApiRepo.class})
 @EntityScan(basePackageClasses = {User.class, Database.class, DatabaseTable.class, FieldConstraint.class, TableField.class, TableDetails.class, TableData.class, DataApi.class})
+
 public class DataSoftProjectApplication {
 
     public static void main(String[] args) {
