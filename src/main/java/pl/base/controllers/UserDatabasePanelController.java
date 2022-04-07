@@ -28,7 +28,6 @@ public class UserDatabasePanelController {
                                @RequestParam("primaryKeyType") String primaryKeyType) {
 
         long databaseIdLong;
-
         try {
             databaseIdLong = Long.parseLong(databaseId);
             if ((!SessionUtil.validUserInput(tableName) || !SessionUtil.validUserInput(primaryKeyName))
