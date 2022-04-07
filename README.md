@@ -1,5 +1,5 @@
 # *Database Visual Online* project
-### Software imitating database created using Java 17 and Spring Boot 2.6.1.
+### Software imitating database created using Java 16 and Spring Boot 2.6.1.
 #### Other used technologies are: *Thymeleaf, Spring Security, Spring Data JPA, mySQL, JavaScript, JQuery, HTML, CSS.*
 ![image](https://user-images.githubusercontent.com/81765291/155874547-0a482f2a-0626-4cd9-88df-198bbe4add34.png)
 # Contents
@@ -17,17 +17,18 @@
 ```
 https://github.com/JacobK1337/DatabaseVisual-Java-SpringBoot.git
 ```
-#### 4. Set database connection details in *src/main/resources/application.properties*
-#### 5. Go to project's main folder and run:
+#### 4. Make a duplicate copy of the database using *databases_backup/datasoftdb.sql*.
+#### 5. Set database connection details in *src/main/resources/application.properties*. 
+#### 6. Go to project's main folder and run:
 ```
 mvn -N io.takari:maven:wrapper
 ```
-#### 6. Then run:
+#### 7. Then run:
 ```
 mvn clean package
 ```
-#### 7. If you encountered problems with compilation, remove src/test folder and run previous command again (in my case maven refused to compile test files).
-#### 8. In go to newly created *target* folder and run:
+#### 8. If you encountered problems with compilation, remove src/test folder and run previous command again (in my case maven refused to compile test files).
+#### 9. In go to newly created *target* folder and run:
 ```
 java -jar DataSoftProject-0.0.1-SNAPSHOT.jar
 ```
