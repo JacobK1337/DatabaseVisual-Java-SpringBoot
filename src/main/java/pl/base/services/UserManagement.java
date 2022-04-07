@@ -1,0 +1,43 @@
+package pl.base.services;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Component;
+import pl.base.entities.User;
+import pl.base.repositories.UserRepo;
+
+import java.util.Optional;
+
+@Component
+public class UserManagement {
+
+    @Autowired
+    UserRepo userRepo;
+
+
+    public UserManagement(UserRepo userRepo){
+        this.userRepo = userRepo;
+    }
+    private BCryptPasswordEncoder passwordEncoder(){return new BCryptPasswordEncoder();}
+
+
+    public Long getUserId(String username){
+        User tempUser = userRepo.findByUsername(username);
+        return Optional.ofNullable(tempUser.getId()).orElse(0L);
+    }
+
+    public void createNewAccount(String username, String password) throws Exception{
+        if(userRepo.findByUsername(username) != null) throw new Exception("Username exists");
+
+        String encodedPassword = passwordEncoder().encode(password);
+
+        User newUser = new User(
+                0L,
+                username,
+                encodedPassword
+        );
+
+        userRepo.save(newUser);
+    }
+
+}
