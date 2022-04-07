@@ -9,7 +9,29 @@
 #### Visualization of the database was craeted in JavaScript together with JQuery 3.6.0 and JQuery UI 1.13.0. Relations between tables are provided by Scalable Vector Graphics (SVG).
 # How it works
 #### The entire operation of the project is based on the communication between the user and the server, which continuously downloads information from the API about its database and tables. Updating resources automatically updates the page and introduces significant changes to the visualized database schema.
-#### All operations performed on user data required processing of values stored in JSON format, which were stored in the database. 
+#### All operations performed on user data required processing of values stored in JSON format, which were stored in the database.
+# Running application
+#### 1. Install Maven following this tutorial: https://maven.apache.org/install.html
+#### 2. Set JDK 16 path in JAVA_HOME environment variable
+#### 3. Clone repo
+```
+https://github.com/JacobK1337/DatabaseVisual-Java-SpringBoot.git
+```
+#### 4. Set database connection details in application.properties
+#### 5. Go to project's main folder and run:
+```
+mvn -N io.takari:maven:wrapper
+```
+#### 6. Then run:
+```
+mvn clean package
+```
+#### 7. If you encountered problems with compilation, remove src/test folder and run previous command again (in my case maven refused to compile test files).
+#### 8. In go to newly created *target* folder and run:
+```
+java -jar DataSoftProject-0.0.1-SNAPSHOT.jar
+```
+
 # Presentation
 ## Login screen
 #### Simple login screen page.
