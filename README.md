@@ -17,7 +17,7 @@
 ```
 https://github.com/JacobK1337/DatabaseVisual-Java-SpringBoot.git
 ```
-#### 4. Set database connection details in application.properties
+#### 4. Set database connection details in *src/main/resources/application.properties*
 #### 5. Go to project's main folder and run:
 ```
 mvn -N io.takari:maven:wrapper
