@@ -5,44 +5,40 @@ import com.google.gson.JsonObject;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
-import pl.base.services.ConstraintManagement;
-import pl.base.entities.FieldConstraint;
+import pl.base.services.ConstraintService;
 import pl.base.entities.DataApi;
-import pl.base.services.DataApiManagement;
+import pl.base.services.DataApiService;
 import pl.base.utils.SessionUtil;
-import pl.base.services.FieldManagement;
+import pl.base.services.TableFieldService;
 import pl.base.entities.TableField;
-import pl.base.services.TableDataManagement;
-import pl.base.entities.DatabaseTable;
-import pl.base.services.TableManagement;
+import pl.base.services.TableDataService;
+import pl.base.services.UserTableService;
+import java.util.*;
+import java.util.stream.Collectors;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
 
 @Controller
 public class UserTableManageController {
 
 
     private final SessionUtil sessionUtil;
-    private final TableDataManagement tableDataManagement;
-    private final FieldManagement fieldManagement;
-    private final TableManagement tableManagement;
-    private final DataApiManagement dataApiManagement;
-    private final ConstraintManagement constraintManagement;
+    private final TableDataService tableDataService;
+    private final TableFieldService tableFieldService;
+    private final UserTableService userTableService;
+    private final DataApiService dataApiService;
+    private final ConstraintService constraintService;
 
-    public UserTableManageController(TableDataManagement tableDataManagement,
-                                     FieldManagement fieldManagement,
-                                     TableManagement tableManagement,
-                                     DataApiManagement dataApiManagement,
-                                     ConstraintManagement constraintManagement,
+    public UserTableManageController(TableDataService tableDataService,
+                                     TableFieldService tableFieldService,
+                                     UserTableService userTableService,
+                                     DataApiService dataApiService,
+                                     ConstraintService constraintService,
                                      SessionUtil sessionUtil){
-        this.tableManagement = tableManagement;
-        this.fieldManagement = fieldManagement;
-        this.tableDataManagement = tableDataManagement;
-        this.dataApiManagement = dataApiManagement;
-        this.constraintManagement = constraintManagement;
+        this.userTableService = userTableService;
+        this.tableFieldService = tableFieldService;
+        this.tableDataService = tableDataService;
+        this.dataApiService = dataApiService;
+        this.constraintService = constraintService;
         this.sessionUtil = sessionUtil;
     }
 
@@ -55,7 +51,7 @@ public class UserTableManageController {
 
         try {
             tableIdLong = Long.parseLong(tableId);
-            return new Gson().toJson(tableDataManagement.getTableData(tableIdLong));
+            return new Gson().toJson(tableDataService.getTableData(tableIdLong));
 
         } catch (NumberFormatException nfe) {
             nfe.printStackTrace();
@@ -73,11 +69,14 @@ public class UserTableManageController {
 
         try {
             tableIdLong = Long.parseLong(tableId);
-            List<String> fieldInfo = new ArrayList<>();
 
-            for (TableField tf : fieldManagement.getFieldsByTableId(tableIdLong)) {
-                fieldInfo.add(fieldManagement.getTableFieldInfoJson(tf.getFieldId()));
-            }
+            var tableFields = tableFieldService.getFieldsByTableId(tableIdLong);
+
+            var fieldInfo =
+                    tableFields.stream()
+                    .map(TableField::getFieldId)
+                    .map(tableFieldService::getTableFieldInfoJson)
+                    .collect(Collectors.toList());
 
             return new Gson().toJson(fieldInfo);
 
@@ -93,7 +92,7 @@ public class UserTableManageController {
     public String getFilteredTableData(@RequestParam Map<String, String> params){
 
         return new Gson()
-                .toJson(tableDataManagement.getFilteredTableData(params));
+                .toJson(tableDataService.getFilteredTableData(params));
 
     }
 
@@ -107,28 +106,20 @@ public class UserTableManageController {
 
         try {
             tableIdLong = Long.parseLong(params.get("tableId"));
-            for (List<String> td : tableDataManagement.getTableData(tableIdLong)) {
 
-                Long dataId = Long.parseLong(td.get(0));
-                JsonObject newData = new JsonObject();
+            var tableData = tableDataService.getTableData(tableIdLong);
+            var tableFields = tableFieldService.getFieldsByTableId(tableIdLong);
 
-                for (var tf : fieldManagement.getFieldsByTableId(tableIdLong)) {
+            tableData.stream()
+                    .map(content -> Long.parseLong(content.get(0)))
+                    .forEach(dataId -> tableFields.stream()
+                            .map(TableField::getFieldName)
+                            .filter(fieldName -> params.get(dataId + fieldName) != null && SessionUtil.validUserInput(params.get(dataId + fieldName)))
+                            .forEach(fieldName -> tableDataService.modifyJsonData(dataId, tableIdLong, fieldName, params.get(dataId + fieldName))));
 
-                    String currentKey = tf.getFieldName();
-                    String newParam = params.get(dataId + currentKey);
 
-
-                    if(newParam != null){
-                        if (!SessionUtil.validUserInput(newParam)) throw new Exception("Invalid input");
-                        newData.addProperty(currentKey, newParam);
-                        tableDataManagement.modifyJsonData(dataId, tableIdLong, currentKey, newParam);
-                    }
-
-                }
-
-            }
         } catch (Exception e) {
-            System.out.println(e.getMessage() + ": only numbers and letters");
+            System.out.println(e.getMessage());
         }
 
 
@@ -145,42 +136,44 @@ public class UserTableManageController {
         try {
             tableIdLong = Long.parseLong(params.get("tableId"));
 
-            DatabaseTable currentTable = tableManagement.getTable(tableIdLong);
-            Long databaseId = currentTable.getDatabaseId();
+            var currentTable = userTableService.getTable(tableIdLong);
+            var databaseId = currentTable.getDatabaseId();
+            var tableFields = tableFieldService.getFieldsByTableId(tableIdLong);
 
-            for (TableField tf : fieldManagement.getFieldsByTableId(tableIdLong)) {
 
-                Long tableFieldId = tf.getFieldId();
+            for (var tf : tableFields) {
+
+                var tableFieldId = tf.getFieldId();
 
                 if (params.get("isNotNull" + tableFieldId) != null && !tf.isNotNull())
-                    fieldManagement.setAsNotNull(tableFieldId, databaseId);
+                    tableFieldService.setAsNotNull(tableFieldId, databaseId);
 
                 else if (params.get("isNotNull" + tableFieldId) == null && tf.isNotNull() && !tf.isPrimaryKey())
-                    fieldManagement.setAsNullable(tableFieldId);
+                    tableFieldService.setAsNullable(tableFieldId);
 
                 if (params.get("isUnique" + tableFieldId) != null && !tf.isUnique())
-                    fieldManagement.setAsUnique(tableFieldId, databaseId);
+                    tableFieldService.setAsUnique(tableFieldId, databaseId);
 
                 else if (params.get("isUnique" + tableFieldId) == null && tf.isUnique() && !tf.isPrimaryKey())
-                    fieldManagement.setAsNotUnique(tableFieldId);
-
+                    tableFieldService.setAsNotUnique(tableFieldId);
 
                 if (!params.get("isForeignKey" + tableFieldId).equals("None")) {
 
-                    String referencingFieldId = params.get("isForeignKey" + tableFieldId);
-                    String onDeleteAction = params.get("onDelete" + tableFieldId);
-                    Long referencingFieldIdLong = Long.parseLong(referencingFieldId);
+                    var referencingFieldId = params.get("isForeignKey" + tableFieldId);
+                    var onDeleteAction = params.get("onDelete" + tableFieldId);
+                    var referencingFieldIdLong = Long.parseLong(referencingFieldId);
 
-                    TableField primaryKeyField = fieldManagement.getTableFieldById(referencingFieldIdLong);
+                    var primaryKeyField = tableFieldService.getTableFieldById(referencingFieldIdLong);
 
-                    if(tableDataManagement.foreignKeyValuesMatchPrimaryKey(tf, primaryKeyField))
-                        fieldManagement.setAsForeignKey(tf, primaryKeyField, databaseId, onDeleteAction);
+                    if(tableDataService.foreignKeyValuesMatchPrimaryKey(tf, primaryKeyField))
+                        tableFieldService.setAsForeignKey(tf, primaryKeyField, databaseId, onDeleteAction);
 
-                    else throw new IllegalStateException("Foreign key values don't match primary key values!");
+                    else
+                        throw new RuntimeException("Foreign key values don't match primary key values!");
 
 
                 } else if (params.get("isForeignKey" + tableFieldId).equals("None")) {
-                    fieldManagement.setAsNotForeignKey(tableFieldId);
+                    tableFieldService.setAsNotForeignKey(tableFieldId);
                 }
 
             }
@@ -199,7 +192,6 @@ public class UserTableManageController {
 
         long databaseIdLong;
         long tableIdLong;
-
         try {
             databaseIdLong = Long.parseLong(params.get("databaseId"));
             tableIdLong = Long.parseLong(params.get("tableId"));
@@ -207,13 +199,8 @@ public class UserTableManageController {
                     .entrySet()
                     .stream()
                     .filter(entry -> entry.getKey().startsWith("dataId-"))
-                    .forEach(entry -> {
-                        Long dataId = Long.parseLong(entry.getValue());
-                        tableDataManagement.deleteJsonData(
-                                tableIdLong,
-                                databaseIdLong,
-                                dataId);
-                    });
+                    .map(entry -> Long.parseLong(entry.getValue()))
+                    .forEach(dataId -> tableDataService.deleteJsonData(tableIdLong, databaseIdLong, dataId));
 
         } catch (NumberFormatException nfe) {
             nfe.printStackTrace();
@@ -226,14 +213,13 @@ public class UserTableManageController {
     public void deleteSavedData(@RequestParam Map<String, String> params) {
 
         try {
+
             params
                     .entrySet()
                     .stream()
                     .filter(entry -> entry.getKey().startsWith("savedDataId-"))
-                    .forEach(entry -> {
-                        Long savedDataId = Long.parseLong(entry.getValue());
-                        dataApiManagement.deleteSavedData(savedDataId);
-                    });
+                    .map(entry -> Long.parseLong(entry.getValue()))
+                    .forEach(dataApiService::deleteSavedData);
 
         } catch (NumberFormatException nfe) {
             nfe.printStackTrace();
@@ -250,19 +236,17 @@ public class UserTableManageController {
 
         try {
             tableIdLong = Long.parseLong(params.get("tableId"));
-            JsonObject newData = new JsonObject();
+            var tableFields = tableFieldService.getFieldsByTableId(tableIdLong);
 
-            for (TableField tf : fieldManagement.getFieldsByTableId(tableIdLong)) {
+            var newData = new JsonObject();
+
+            tableFields.stream()
+                    .map(TableField::getFieldName)
+                    .filter(fieldName -> SessionUtil.validUserInput(params.get(fieldName)))
+                    .forEach(fieldName -> newData.addProperty(fieldName, params.get(fieldName)));
 
 
-                String newValue = params.get(tf.getFieldName());
-
-                if (!SessionUtil.validUserInput(newValue)) throw new Exception("Invalid input");
-
-                newData.addProperty(tf.getFieldName(), newValue);
-
-            }
-            tableDataManagement.addJsonData(tableIdLong, newData);
+            tableDataService.addJsonData(tableIdLong, newData);
 
         } catch (Exception e) {
             System.out.println(e.getMessage() + ": only numbers and letters");
@@ -285,13 +269,13 @@ public class UserTableManageController {
         try {
             tableIdLong = Long.parseLong(tableId);
             databaseIdLong = Long.parseLong(databaseId);
-            Boolean notNullVar = notNull != null;
-            Boolean uniqueVar = unique != null;
+            var notNullVar = notNull != null;
+            var uniqueVar = unique != null;
 
             if (!SessionUtil.validUserInput(fieldName)
                     || fieldName.equals("")) throw new Exception("Invalid input");
 
-            fieldManagement.addNewField(
+            tableFieldService.addNewField(
                     tableIdLong,
                     databaseIdLong,
                     fieldName,
@@ -301,7 +285,7 @@ public class UserTableManageController {
                     defaultValue,
                     false);
 
-            tableDataManagement.insertAddedFieldToAll(tableIdLong, fieldName, defaultValue);
+            tableDataService.insertAddedFieldToAll(tableIdLong, fieldName, defaultValue);
 
         } catch (Exception e) {
             System.out.println(e.getMessage());
@@ -317,16 +301,16 @@ public class UserTableManageController {
         long tableIdLong;
         try {
             tableIdLong = Long.parseLong(params.get("tableId"));
-            for (TableField tf : fieldManagement.getFieldsByTableId(tableIdLong)) {
-                if (params.get(tf.getFieldName()) != null) {
-                    fieldManagement.deleteFieldByName(
-                            tf.getFieldName(),
-                            tableIdLong);
 
-                    tableDataManagement.eraseFieldFromAll(tf.getFieldName(), tableIdLong);
+            var tableFields = tableFieldService.getFieldsByTableId(tableIdLong);
+            tableFields.stream()
+                    .map(TableField::getFieldName)
+                    .filter(fieldName -> params.get(fieldName) != null)
+                    .forEach(fieldName -> {
+                        tableFieldService.deleteFieldByName(fieldName, tableIdLong);
+                        tableDataService.eraseFieldFromAll(fieldName, tableIdLong);
+                    });
 
-                }
-            }
         } catch (NumberFormatException nfe) {
             nfe.printStackTrace();
         }
@@ -340,29 +324,28 @@ public class UserTableManageController {
         long databaseIdLong;
         try {
             databaseIdLong = Long.parseLong(databaseId);
-            List<FieldConstraint> primaryKeys = constraintManagement.getPrimaryKeysByDatabaseId(databaseIdLong);
+            var primaryKeys = constraintService.getPrimaryKeysByDatabaseId(databaseIdLong);
 
-            List<String> response = new ArrayList<>();
+            var response =
+                primaryKeys.stream()
+                        .map(primaryKey -> tableFieldService.getTableFieldById(primaryKey.getFieldId()))
+                        .map(tableField ->{
+                           var tableName = userTableService
+                                   .getTableDetails(tableField.getTableId())
+                                   .getTableName();
 
-            for (FieldConstraint fc : primaryKeys) {
+                           var tableId = tableField.getTableId().toString();
+                           var jsonResult = new JsonObject();
 
-                TableField currentTableField = fieldManagement.getTableFieldById(fc.getFieldId());
-                String primaryKeyName = currentTableField.getFieldName();
+                           jsonResult.addProperty("fieldId", tableField.getFieldId());
+                           jsonResult.addProperty("fieldName", tableField.getFieldName());
+                           jsonResult.addProperty("tableName", tableName);
+                           jsonResult.addProperty("tableId", tableId);
 
-                String tableName = tableManagement
-                        .getTableDetails(currentTableField.getTableId())
-                        .getTableName();
+                           return jsonResult.toString();
+                        })
+                        .collect(Collectors.toList());
 
-                String tableId = currentTableField.getTableId().toString();
-                JsonObject jsonResult = new JsonObject();
-
-                jsonResult.addProperty("fieldId", fc.getFieldId());
-                jsonResult.addProperty("fieldName", primaryKeyName);
-                jsonResult.addProperty("tableName", tableName);
-                jsonResult.addProperty("tableId", tableId);
-
-                response.add(jsonResult.toString());
-            }
 
             return new Gson().toJson(response);
 
@@ -380,20 +363,20 @@ public class UserTableManageController {
         long databaseIdLong;
         try {
             databaseIdLong = Long.parseLong(databaseId);
-            List<FieldConstraint> foreignKeys = constraintManagement.getForeignKeysByDatabaseId(databaseIdLong);
+            var foreignKeys = constraintService.getForeignKeysByDatabaseId(databaseIdLong);
 
-            List<List<String>> response = new ArrayList<>();
 
-            for (FieldConstraint fc : foreignKeys) {
-                response.add(Arrays.asList(
-                        fc.getFieldId().toString(),
-                        fieldManagement
-                                .getTableFieldById(fc.getFieldId())
-                                .getFieldName(),
+            var response =
+                foreignKeys.stream()
+                        .map(foreignKey -> Arrays.asList(
+                                foreignKey.getFieldId().toString(),
+                                tableFieldService.getTableFieldById(foreignKey.getFieldId()).getFieldName(),
+                                foreignKey.getConstraintInfoJson()
 
-                        fc.getConstraintInfoJson()
-                ));
-            }
+                        ))
+                        .collect(Collectors.toList());
+
+
             return new Gson().toJson(response);
 
         } catch (NumberFormatException nfe) {
@@ -411,7 +394,7 @@ public class UserTableManageController {
         long dataApiIdLong;
         try {
             dataApiIdLong = Long.parseLong(dataApiId);
-            String data = dataApiManagement
+            var data = dataApiService
                     .getDataApiByDataId(dataApiIdLong)
                     .getDataApiJson();
 
@@ -433,12 +416,13 @@ public class UserTableManageController {
         long tableIdLong;
         try {
             tableIdLong = Long.parseLong(tableId);
-            List<DataApi> userData = dataApiManagement.getDataApiByTableId(tableIdLong);
+            var userData = dataApiService.getDataApiByTableId(tableIdLong);
 
-            List<Long> dataIds = new ArrayList<>();
-            for (DataApi data : userData) {
-                dataIds.add(data.getDataApiId());
-            }
+            var dataIds =
+                userData.stream()
+                        .map(DataApi::getDataApiId)
+                        .collect(Collectors.toList());
+
 
             return new Gson().toJson(dataIds);
 
@@ -458,13 +442,13 @@ public class UserTableManageController {
         try {
 
             tableIdLong = Long.parseLong(tableId);
-            Long primaryKeyFieldId = fieldManagement.getPrimaryKeyFieldId(tableIdLong);
+            Long primaryKeyFieldId = tableFieldService.getPrimaryKeyFieldId(tableIdLong);
 
-            String primaryKeyName = fieldManagement
+            String primaryKeyName = tableFieldService
                     .getTableFieldById(primaryKeyFieldId)
                     .getFieldName();
 
-            dataApiManagement.saveNewData(
+            dataApiService.saveNewData(
                     jsonData,
                     sessionUtil.id(),
                     tableIdLong,
@@ -490,13 +474,13 @@ public class UserTableManageController {
 
             tableIdLong = Long.parseLong(tableId);
             databaseIdLong = Long.parseLong(databaseId);
-            tableDataManagement.importDataByDataApi(
+            tableDataService.importDataByDataApi(
                     tableIdLong,
                     dataTokenLong,
                     databaseIdLong);
 
-        } catch (NumberFormatException nfe) {
-            System.out.println(nfe.getMessage());
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
         }
 
     }

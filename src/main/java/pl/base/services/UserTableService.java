@@ -1,7 +1,7 @@
 package pl.base.services;
 
 import com.google.gson.JsonObject;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import pl.base.entities.DatabaseTable;
 import pl.base.repositories.TableRepo;
 import pl.base.entities.TableDetails;
@@ -11,25 +11,25 @@ import java.util.List;
 import java.util.Locale;
 
 
-@Component
-public class TableManagement {
+@Service
+public class UserTableService {
 
 
     private final TableRepo tableRepo;
     private final TableDetailsRepo tableDetailsRepo;
-    private final ConstraintManagement constraintManagement;
-    private final FieldManagement fieldManagement;
+    private final ConstraintService constraintService;
+    private final TableFieldService tableFieldService;
 
 
-    public TableManagement(TableRepo tableRepo,
-                           TableDetailsRepo tableDetailsRepo,
-                           ConstraintManagement constraintManagement,
-                           FieldManagement fieldManagement){
+    public UserTableService(TableRepo tableRepo,
+                            TableDetailsRepo tableDetailsRepo,
+                            ConstraintService constraintService,
+                            TableFieldService tableFieldService){
 
         this.tableRepo = tableRepo;
         this.tableDetailsRepo = tableDetailsRepo;
-        this.constraintManagement = constraintManagement;
-        this.fieldManagement = fieldManagement;
+        this.constraintService = constraintService;
+        this.tableFieldService = tableFieldService;
     }
 
     public List<DatabaseTable> getDatabaseTables(Long databaseId) {
@@ -85,7 +85,7 @@ public class TableManagement {
             );
 
             tableDetailsRepo.save(newTableDetails);
-            fieldManagement.addNewField(
+            tableFieldService.addNewField(
                     newTableId,
                     databaseId,
                     primaryKeyName,
@@ -103,20 +103,22 @@ public class TableManagement {
 
     private boolean tableNameAvailable(Long databaseId, String newTableName) {
 
-        return tableRepo.findByDatabaseId(databaseId)
-                .stream()
-                .noneMatch(table -> {
+        var databasesTables = tableRepo.findByDatabaseId(databaseId);
 
-                    TableDetails tableDetails = tableDetailsRepo.findByTableId(table.getTableId());
-                    return tableDetails.getTableName().toLowerCase(Locale.ROOT)
-                            .equals(newTableName.toLowerCase(Locale.ROOT));
-                });
+        return
+            databasesTables.stream()
+                    .map(DatabaseTable::getTableId)
+                    .map(tableDetailsRepo::findByTableId)
+                    .map(tableDetail -> tableDetail.getTableName().toLowerCase(Locale.ROOT))
+                    .noneMatch(tableName -> tableName.equals(newTableName.toLowerCase(Locale.ROOT)));
+
+
     }
 
     public void deleteTable(Long tableId, Long databaseId) {
-        Long tablePrimaryKey = fieldManagement.getPrimaryKeyFieldId(tableId);
+        Long tablePrimaryKey = tableFieldService.getPrimaryKeyFieldId(tableId);
 
-        if (!constraintManagement.isReferencedByForeignKey(tablePrimaryKey, databaseId))
+        if (!constraintService.isReferencedByForeignKey(tablePrimaryKey, databaseId))
             tableRepo.deleteDatabaseTableByTableId(tableId);
     }
 
@@ -126,24 +128,5 @@ public class TableManagement {
 
         tableDetailsRepo.setNewTablePlacement(tableId, pageX, pageY);
     }
-
-    private Boolean isUniqueTableName(Long databaseId, String tableName) {
-
-        return
-                tableRepo
-                        .findByDatabaseId(databaseId)
-                        .stream()
-                        .noneMatch(databaseTable -> {
-                            Long tableId = databaseTable.getTableId();
-
-                            TableDetails details = tableDetailsRepo.findByTableId(tableId);
-
-                            return details.getTableName().equals(tableName);
-
-                        });
-
-
-    }
-
 
 }

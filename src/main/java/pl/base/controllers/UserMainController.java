@@ -7,9 +7,9 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.ModelAndView;
-import pl.base.services.DatabaseManagement;
+import pl.base.services.UserDatabaseService;
+import pl.base.services.UserService;
 import pl.base.utils.SessionUtil;
-import pl.base.services.UserManagement;
 
 @Controller
 public class UserMainController {
@@ -17,17 +17,17 @@ public class UserMainController {
 
     private final SessionUtil sessionUtil;
 
-    private final UserManagement userManagement;
+    private final UserService userService;
 
-    private final DatabaseManagement dbManagement;
+    private final UserDatabaseService userDatabaseService;
 
 
-    public UserMainController(UserManagement userManagement,
-                              DatabaseManagement dbManagement,
+    public UserMainController(UserService userService,
+                              UserDatabaseService userDatabaseService,
                               SessionUtil sessionUtil){
 
-        this.userManagement = userManagement;
-        this.dbManagement = dbManagement;
+        this.userService = userService;
+        this.userDatabaseService = userDatabaseService;
         this.sessionUtil = sessionUtil;
     }
 
@@ -67,7 +67,7 @@ public class UserMainController {
 
             if (!SessionUtil.validUserInput(username) || !SessionUtil.validUserInput(password)) throw new Exception("Invalid input");
 
-            userManagement.createNewAccount(username, password);
+            userService.createNewAccount(username, password);
             return "redirect:/login";
 
         } catch (Exception e) {
@@ -78,7 +78,7 @@ public class UserMainController {
 
     @GetMapping("/databases")
     public String databases(Model model) {
-        model.addAttribute("userDatabases", dbManagement.getUserDatabases(sessionUtil.id()));
+        model.addAttribute("userDatabases", userDatabaseService.getUserDatabases(sessionUtil.id()));
 
         return "databases";
     }
@@ -89,8 +89,10 @@ public class UserMainController {
         try {
             if (!SessionUtil.validUserInput(databaseName)) throw new Exception("Invalid input");
 
-            dbManagement.createNewDatabase(sessionUtil.id(), databaseName);
+            userDatabaseService.createNewDatabase(sessionUtil.id(), databaseName);
+
             return "redirect:/databases";
+
         } catch (Exception e) {
             return "redirect:/home";
         }

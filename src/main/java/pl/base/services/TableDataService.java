@@ -3,64 +3,72 @@ package pl.base.services;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import pl.base.entities.FieldConstraint;
 import pl.base.entities.DataApi;
 import pl.base.entities.TableData;
 import pl.base.entities.TableField;
 import pl.base.repositories.TableDataRepo;
-
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-@Component
-public class TableDataManagement {
+@Service
+public class TableDataService {
 
 
     private final TableDataRepo tableDataRepo;
-    private final FieldManagement fieldManagement;
-    private final ConstraintManagement constraintManagement;
-    private final DataApiManagement dataApiManagement;
+    private final TableFieldService tableFieldService;
+    private final ConstraintService constraintService;
+    private final DataApiService dataApiService;
     private final TableDataFilteredImpl tableDataFiltered;
 
 
-    public TableDataManagement(TableDataRepo tableDataRepo,
-                               FieldManagement fieldManagement,
-                               ConstraintManagement constraintManagement,
-                               DataApiManagement dataApiManagement,
-                               TableDataFilteredImpl tableDataFiltered){
+    public TableDataService(TableDataRepo tableDataRepo,
+                            TableFieldService tableFieldService,
+                            ConstraintService constraintService,
+                            DataApiService dataApiService,
+                            TableDataFilteredImpl tableDataFiltered){
         this.tableDataRepo = tableDataRepo;
-        this.fieldManagement = fieldManagement;
-        this.constraintManagement = constraintManagement;
-        this.dataApiManagement = dataApiManagement;
+        this.tableFieldService = tableFieldService;
+        this.constraintService = constraintService;
+        this.dataApiService = dataApiService;
         this.tableDataFiltered = tableDataFiltered;
     }
 
     public List<List<String>> getTableData(Long tableId) {
 
-        List<List<String>> result = new ArrayList<>();
-        for (TableData td : tableDataRepo.findByTableId(tableId)) {
-            result.add(Arrays.asList(
-                    Long.toString(td.getDataId()),
-                    td.getFieldJsonValue()
-            ));
-        }
+
+
+        var tableData = tableDataRepo.findByTableId(tableId);
+
+        var result =
+                tableData.stream()
+                .map(data -> List.of(
+                        Long.toString(data.getDataId()),
+                        data.getFieldJsonValue()
+
+                ))
+                .collect(Collectors.toList());
 
         return result;
     }
 
     public List<List<String>> getFilteredTableData(Map<String, String> params){
 
-        List<List<String>> result = new ArrayList<>();
-        for (TableData td : tableDataFiltered.findFilteredTableData(params)) {
-            result.add(Arrays.asList(
-                    String.valueOf(td.getDataId()),
-                    td.getFieldJsonValue()
-            ));
-        }
+
+        var filteredTableData = tableDataFiltered.findFilteredTableData(params);
+        var result =
+            filteredTableData.stream()
+                    .map(data -> List.of(
+                            String.valueOf(data.getDataId()),
+                            data.getFieldJsonValue()
+
+                    ))
+                    .collect(Collectors.toList());
+
         return result;
     }
 
@@ -68,7 +76,9 @@ public class TableDataManagement {
     public void addJsonData(Long tableId, JsonObject newValue) {
 
 
-        if (newDataErrors(tableId, newValue).size() == 0) {
+        var errors = newDataErrors(tableId, newValue);
+
+        if (errors.size() == 0) {
 
             String newValueStr = newValue.toString();
 
@@ -80,9 +90,11 @@ public class TableDataManagement {
             );
 
             tableDataRepo.save(newTableData);
-        } else
-            for (String error : newDataErrors(tableId, newValue))
-                System.out.println(error);
+        }
+        else
+            errors.forEach(error ->{
+                throw new RuntimeException(error);
+            });
 
     }
 
@@ -93,9 +105,9 @@ public class TableDataManagement {
         tableDataRepo.findByTableId(tableId)
                 .stream()
                 .filter(tableData -> tableData.getTableId().equals(tableId))
-                .forEach(tableData -> {
-                    tableDataRepo.updateJsonValueByDataId(tableData.getDataId(), "$." + fieldName, fieldDefaultValue);
-                });
+                .forEach(tableData ->
+                        tableDataRepo.updateJsonValueByDataId(tableData.getDataId(), "$." + fieldName, fieldDefaultValue)
+                );
 
     }
 
@@ -115,12 +127,65 @@ public class TableDataManagement {
                                String key,
                                String newValue) {
 
-        if (modifiedDataErrors(tableId, key, newValue).size() == 0)
+        var errors = modifiedDataErrors(tableId, key, newValue);
+
+        if (errors.size() == 0){
+
+            //if modified value is a primary key, we change foreign key values as well.
+            var tableFields = tableFieldService.getFieldsByTableId(tableId);
+
+            var primaryKeyFieldWithGivenKey =
+                    tableFields
+                            .stream()
+                            .filter(TableField::isPrimaryKey)
+                            .filter(tableField -> tableField.getFieldName().equals(key))
+                            .findFirst()
+                            .orElse(null);
+
+            if(primaryKeyFieldWithGivenKey != null){
+                var foreignKeys =
+                        constraintService
+                                .getForeignKeysByPrimaryKeyId(primaryKeyFieldWithGivenKey.getFieldId());
+
+
+                //getting current primary key value, before modification
+                var primaryKeyModifiedRow = tableDataRepo.findByDataId(dataId);
+                var primaryKeyModifiedRowJson = new JsonParser()
+                        .parse(primaryKeyModifiedRow.getFieldJsonValue())
+                        .getAsJsonObject();
+
+                var primaryKeyValue = primaryKeyModifiedRowJson.get(key).toString();
+
+
+                foreignKeys.stream()
+                        .map(foreignKey ->
+                                tableFieldService.getTableFieldById(foreignKey.getFieldId()))
+                        .forEach(tableField ->
+                                tableDataRepo.findByTableId(tableField.getTableId())
+                                        .stream()
+                                        .filter(tableData -> {
+                                            var fieldJsonValue = new JsonParser()
+                                                    .parse(tableData.getFieldJsonValue())
+                                                    .getAsJsonObject();
+                                            var foreignKeyValue = fieldJsonValue.get(tableField.getFieldName()).toString();
+
+                                            return foreignKeyValue.equals(primaryKeyValue);
+                                        })
+                                        .forEach(tableData ->
+                                                tableDataRepo.updateJsonValueByDataId(
+                                                        tableData.getDataId(),
+                                                        "$." + tableField.getFieldName(),
+                                                        newValue))
+                        );
+            }
+
             tableDataRepo.updateJsonValueByDataId(dataId, "$." + key, newValue);
+        }
 
         else
-            for (String error : modifiedDataErrors(tableId, key, newValue))
-                System.out.println(error);
+            errors.forEach(error -> {
+                throw new RuntimeException(error);
+            });
     }
 
     public void deleteJsonData(Long tableId, Long databaseId, Long dataId) {
@@ -132,7 +197,7 @@ public class TableDataManagement {
 
 
         //getting all primary keys
-        fieldManagement.getFieldsByTableId(tableId)
+        tableFieldService.getFieldsByTableId(tableId)
                 .stream()
                 .filter(TableField::isPrimaryKey)
                 .forEach(tableField -> {
@@ -142,7 +207,7 @@ public class TableDataManagement {
                     String primaryKeyData = dataJson.get(primaryKeyName).toString();
                     primaryKeyData = primaryKeyData.substring(1, primaryKeyData.length() - 1);
 
-                    if (constraintManagement.isReferencedByForeignKey(primaryKeyId, databaseId))
+                    if (constraintService.isReferencedByForeignKey(primaryKeyId, databaseId))
                         fixForeignKeyValues(primaryKeyId, primaryKeyData, dataId);
 
                     else
@@ -162,46 +227,51 @@ public class TableDataManagement {
         Long primaryKeyTableId = primaryKeyField.getTableId();
         String primaryKeyName = primaryKeyField.getFieldName();
 
+        var tableData = tableDataRepo.findByTableId(foreignKeyTableId);
+        var primaryTableData = tableDataRepo.findByTableId(primaryKeyTableId);
+
         return
-                tableDataRepo.findByTableId(foreignKeyTableId)
-                        .stream()
-                        .allMatch(tableData -> {
-                            String foreignKeyData = tableData.getFieldJsonValue();
-                            JsonObject foreignKeyJson = new JsonParser()
-                                    .parse(foreignKeyData)
+                tableData.stream()
+                .map(data -> {
+                    var foreignKeyData = data.getFieldJsonValue();
+                    var foreignKeyJson = new JsonParser()
+                            .parse(foreignKeyData)
+                            .getAsJsonObject();
+
+                    var foreignKeyValue = foreignKeyJson.get(foreignKeyName).toString();
+
+                    return foreignKeyValue;
+                })
+                .allMatch(foreignKeyValue ->
+                        primaryTableData.stream()
+                        .map(data -> {
+                            var primaryKeyData = data.getFieldJsonValue();
+                            var primaryKeyJson = new JsonParser()
+                                    .parse(primaryKeyData)
                                     .getAsJsonObject();
 
-                            String foreignKeyValue = foreignKeyJson.get(foreignKeyName).toString();
+                            var primaryKeyValue = primaryKeyJson.get(primaryKeyName).toString();
 
-                            for (TableData td : tableDataRepo.findByTableId(primaryKeyTableId)) {
-                                String primaryKeyData = td.getFieldJsonValue();
-                                JsonObject primaryKeyJson = new JsonParser()
-                                        .parse(primaryKeyData)
-                                        .getAsJsonObject();
+                            return primaryKeyValue;
+                        })
+                        .anyMatch(primaryKeyValue -> primaryKeyValue.equals(foreignKeyValue))
+                );
 
-                                String primaryKeyValue = primaryKeyJson.get(primaryKeyName).toString();
 
-                                if (primaryKeyValue.equals(foreignKeyValue))
-                                    return true;
-
-                            }
-
-                            return false;
-                        });
     }
 
     public void importDataByDataApi(Long tableId,
                                     Long dataApiId,
                                     Long databaseId) {
 
-        Long primaryKeyFieldId = fieldManagement.getPrimaryKeyFieldId(tableId);
+        Long primaryKeyFieldId = tableFieldService.getPrimaryKeyFieldId(tableId);
 
-        if (!constraintManagement.isReferencedByForeignKey(primaryKeyFieldId, databaseId)) {
+        if (!constraintService.isReferencedByForeignKey(primaryKeyFieldId, databaseId)) {
 
-            fieldManagement.deleteTableFieldsByTableId(tableId);
+            tableFieldService.deleteTableFieldsByTableId(tableId);
             tableDataRepo.deleteTableDatasByTableId(tableId);
 
-            DataApi importedData = dataApiManagement.getDataApiByDataId(dataApiId);
+            DataApi importedData = dataApiService.getDataApiByDataId(dataApiId);
             String primaryKeyName = importedData.getPrimaryKeyName();
 
             String data = importedData.getDataApiJson();
@@ -215,44 +285,31 @@ public class TableDataManagement {
                     .keySet()
                     .stream().toList();
 
-            for (String key : tableFields) {
+            tableFields
+                    .forEach(fieldName -> tableFieldService.addNewField(
+                            tableId,
+                            databaseId,
+                            fieldName,
+                            autoFieldType(fieldName, dataJson),
+                            fieldName.equals(primaryKeyName),
+                            fieldName.equals(primaryKeyName),
+                            fieldName.equals(primaryKeyName) ? "" : "null",
+                            fieldName.equals(primaryKeyName)
 
-                String fieldType = autoFieldType(key, dataJson);
-                boolean isPrimaryKey = false;
-                boolean unique = false;
-                boolean notNull = false;
+                    ));
 
-                if (key.equals(primaryKeyName)) {
-                    isPrimaryKey = true;
-                    unique = true;
-                    notNull = true;
-                }
+            IntStream.range(0, dataJson.size())
+                    .mapToObj(i -> dataJson.get(i).getAsJsonObject().toString())
+                    .map(jsonData -> new TableData(
+                            0L,
+                            tableId,
+                            jsonData
+                    ))
+                    .forEach(tableDataRepo::save);
 
-                fieldManagement.addNewField(
-                        tableId,
-                        databaseId,
-                        key,
-                        fieldType,
-                        notNull,
-                        unique,
-                        "",
-                        isPrimaryKey);
-            }
-
-            for (int i = 0; i < dataJson.size(); i++) {
-                JsonObject jsonValue = dataJson.get(i).getAsJsonObject();
-                String jsonData = jsonValue.toString();
-
-                TableData newData = new TableData(
-                        0L,
-                        tableId,
-                        jsonData
-                );
-
-                tableDataRepo.save(newData);
-            }
         } else
-            System.out.println("Cannot import - primary key is referenced in other table!");
+            throw new RuntimeException("Cannot import - primary key is referenced in other table!");
+
 
     }
 
@@ -291,16 +348,17 @@ public class TableDataManagement {
     //cascade deletion of all records containing currently deleted primary key (or set null).
     private void fixForeignKeyValues(Long primaryKeyId, String primaryKeyValue, Long dataToDeleteId) {
 
-        constraintManagement.getForeignKeysByPrimaryKeyId(primaryKeyId)
+        constraintService.getForeignKeysByPrimaryKeyId(primaryKeyId)
                 .forEach(fieldConstraint -> {
-                    Long currentFieldId = fieldConstraint.getFieldId();
+                    var currentFieldId = fieldConstraint.getFieldId();
 
-                    TableField currentField = fieldManagement.getTableFieldById(currentFieldId);
+                    var currentField = tableFieldService.getTableFieldById(currentFieldId);
 
-                    Long currentFieldTableId = currentField.getTableId();
+                    var currentFieldTableId = currentField.getTableId();
 
-                    String data = fieldConstraint.getConstraintInfoJson();
-                    JsonObject jsonData = new JsonParser()
+                    var data = fieldConstraint.getConstraintInfoJson();
+
+                    var jsonData = new JsonParser()
                             .parse(data)
                             .getAsJsonObject();
 
@@ -322,7 +380,7 @@ public class TableDataManagement {
     }
 
     private void setNullDelete(Long tableId, Long fieldId, String valueToFind) {
-        String fieldName = fieldManagement.
+        String fieldName = tableFieldService.
                 getTableFieldById(fieldId).
                 getFieldName();
 
@@ -340,7 +398,7 @@ public class TableDataManagement {
     }
 
     private void cascadeDelete(Long tableId, Long fieldId, String valueToFind) {
-        String fieldName = fieldManagement.
+        String fieldName = tableFieldService.
                 getTableFieldById(fieldId).
                 getFieldName();
 
@@ -376,7 +434,7 @@ public class TableDataManagement {
     }
 
     public List<String> newDataErrors(Long tableId, JsonObject toVerify) {
-        List<TableField> tableFields = fieldManagement.getFieldsByTableId(tableId);
+        List<TableField> tableFields = tableFieldService.getFieldsByTableId(tableId);
 
         List<String> errorLogs = new ArrayList<>();
         tableFields
@@ -394,7 +452,7 @@ public class TableDataManagement {
     }
 
     public List<String> modifiedDataErrors(Long tableId, String key, String newValue) {
-        List<TableField> tableFields = fieldManagement.getFieldsByTableId(tableId);
+        List<TableField> tableFields = tableFieldService.getFieldsByTableId(tableId);
 
         List<String> errorLogs = new ArrayList<>();
         tableFields
@@ -436,7 +494,7 @@ public class TableDataManagement {
     private Boolean foreignKeyValueExistsInPrimaryKeyTable(Long fieldId,
                                                            String toVerify) {
 
-        FieldConstraint foreignKeyConstraint = constraintManagement.getForeignKeyByFieldId(fieldId);
+        FieldConstraint foreignKeyConstraint = constraintService.getForeignKeyByFieldId(fieldId);
 
         JsonObject foreignKeyDescription = new JsonParser()
                 .parse(foreignKeyConstraint.getConstraintInfoJson())
@@ -448,7 +506,7 @@ public class TableDataManagement {
 
         Long referencedFieldIdLong = Long.parseLong(referencedFieldId);
 
-        TableField referencedField = fieldManagement.getTableFieldById(referencedFieldIdLong);
+        TableField referencedField = tableFieldService.getTableFieldById(referencedFieldIdLong);
 
         Long referencedFieldTableId = referencedField.getTableId();
 

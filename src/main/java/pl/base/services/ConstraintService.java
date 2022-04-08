@@ -3,20 +3,18 @@ package pl.base.services;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import pl.base.entities.FieldConstraint;
 import pl.base.repositories.ConstraintRepo;
-
-
 import java.util.List;
 
 
-@Component
-public class ConstraintManagement {
+@Service
+public class ConstraintService {
 
     private final ConstraintRepo constraintRepo;
 
-    public ConstraintManagement(ConstraintRepo constraintRepo){
+    public ConstraintService(ConstraintRepo constraintRepo){
         this.constraintRepo = constraintRepo;
     }
 

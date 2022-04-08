@@ -1,21 +1,21 @@
 package pl.base.services;
 
 import com.google.gson.JsonObject;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import pl.base.entities.TableField;
 import pl.base.repositories.FieldRepo;
 
 import java.util.List;
 
-@Component
-public class FieldManagement {
+@Service
+public class TableFieldService {
 
     private final FieldRepo fieldRepo;
-    private final ConstraintManagement constraintManagement;
+    private final ConstraintService constraintService;
 
-    public FieldManagement(FieldRepo fieldRepo, ConstraintManagement constraintManagement){
+    public TableFieldService(FieldRepo fieldRepo, ConstraintService constraintService){
         this.fieldRepo = fieldRepo;
-        this.constraintManagement = constraintManagement;
+        this.constraintService = constraintService;
     }
 
 
@@ -81,9 +81,9 @@ public class FieldManagement {
 
             fieldRepo.setFieldAsForeignKey(foreignKeyFieldId);
 
-            constraintManagement.dropForeignKeyConstraint(foreignKeyFieldId);
+            constraintService.dropForeignKeyConstraint(foreignKeyFieldId);
 
-            constraintManagement.setForeignKeyConstraint(foreignKeyFieldId, primaryKeyFieldId, databaseId, onDeleteAction);
+            constraintService.setForeignKeyConstraint(foreignKeyFieldId, primaryKeyFieldId, databaseId, onDeleteAction);
 
         } else
             throw new IllegalStateException("This field type don't match with chosen field, or can't set this field to null!");
@@ -92,27 +92,27 @@ public class FieldManagement {
 
     public void setAsNotForeignKey(Long fieldId) {
         fieldRepo.setFieldAsNotForeignKey(fieldId);
-        constraintManagement.dropForeignKeyConstraint(fieldId);
+        constraintService.dropForeignKeyConstraint(fieldId);
     }
 
     public void setAsUnique(Long fieldId, Long databaseId) {
         fieldRepo.setAsUnique(fieldId);
-        constraintManagement.setUniqueConstraint(fieldId, databaseId);
+        constraintService.setUniqueConstraint(fieldId, databaseId);
     }
 
     public void setAsNotUnique(Long fieldId) {
         fieldRepo.setAsNotUnique(fieldId);
-        constraintManagement.dropUniqueConstraint(fieldId);
+        constraintService.dropUniqueConstraint(fieldId);
     }
 
     public void setAsNullable(Long fieldId) {
         fieldRepo.setAsNullable(fieldId);
-        constraintManagement.dropNotNullConstraint(fieldId);
+        constraintService.dropNotNullConstraint(fieldId);
     }
 
     public void setAsNotNull(Long fieldId, Long databaseId) {
         fieldRepo.setAsNotNull(fieldId);
-        constraintManagement.setNotNullConstraint(fieldId, databaseId);
+        constraintService.setNotNullConstraint(fieldId, databaseId);
     }
 
     public void addNewField(Long tableId,
@@ -151,13 +151,13 @@ public class FieldManagement {
             var savedField = fieldRepo.save(newField);
 
             if (notNull)
-                constraintManagement.setNotNullConstraint(savedField.getFieldId(), databaseId);
+                constraintService.setNotNullConstraint(savedField.getFieldId(), databaseId);
 
             if (unique)
-                constraintManagement.setUniqueConstraint(savedField.getFieldId(), databaseId);
+                constraintService.setUniqueConstraint(savedField.getFieldId(), databaseId);
 
             if (isPrimaryKey)
-                constraintManagement.setPrimaryKeyConstraint(savedField.getFieldId(), databaseId);
+                constraintService.setPrimaryKeyConstraint(savedField.getFieldId(), databaseId);
 
         }
 

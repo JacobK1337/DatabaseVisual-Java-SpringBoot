@@ -1,18 +1,19 @@
 package pl.base.services;
 
 import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import pl.base.entities.DataApi;
 import pl.base.repositories.DataApiRepo;
 
 import java.util.List;
 
 
-@Component
-public class DataApiManagement {
+@Service
+public class DataApiService {
 
     private final DataApiRepo dataApiRepo;
 
-    public DataApiManagement(DataApiRepo dataApiRepo){
+    public DataApiService(DataApiRepo dataApiRepo){
         this.dataApiRepo = dataApiRepo;
     }
 

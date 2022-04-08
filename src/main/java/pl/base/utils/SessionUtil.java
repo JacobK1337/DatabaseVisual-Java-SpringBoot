@@ -2,7 +2,7 @@ package pl.base.utils;
 
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
-import pl.base.services.UserManagement;
+import pl.base.services.UserService;
 
 import java.util.regex.Pattern;
 
@@ -10,10 +10,10 @@ import java.util.regex.Pattern;
 public class SessionUtil {
 
 
-    private final UserManagement userManagement;
+    private final UserService userService;
 
-    public SessionUtil(UserManagement userManagement){
-        this.userManagement = userManagement;
+    public SessionUtil(UserService userService){
+        this.userService = userService;
     }
 
     public String username() {
@@ -21,7 +21,7 @@ public class SessionUtil {
     }
 
     public Long id() {
-        return userManagement.getUserId(username());
+        return userService.getUserId(username());
     }
 
     public static Boolean validUserInput(String userInput) {

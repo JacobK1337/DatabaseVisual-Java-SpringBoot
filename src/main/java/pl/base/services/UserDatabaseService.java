@@ -1,17 +1,18 @@
 package pl.base.services;
 
 import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import pl.base.entities.Database;
 import pl.base.repositories.DatabaseRepo;
 
 import java.util.List;
 
-@Component
-public class DatabaseManagement {
+@Service
+public class UserDatabaseService {
 
     private final DatabaseRepo databaseRepo;
 
-    public DatabaseManagement(DatabaseRepo databaseRepo){
+    public UserDatabaseService(DatabaseRepo databaseRepo){
         this.databaseRepo = databaseRepo;
     }
 

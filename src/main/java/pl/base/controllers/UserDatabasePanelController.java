@@ -6,18 +6,18 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import pl.base.utils.SessionUtil;
 import pl.base.entities.DatabaseTable;
-import pl.base.services.TableManagement;
+import pl.base.services.UserTableService;
 
 import java.util.ArrayList;
-import java.util.List;
+import java.util.stream.Collectors;
 
 @Controller
 public class UserDatabasePanelController {
 
-    private final TableManagement tableManagement;
+    private final UserTableService userTableService;
 
-    public UserDatabasePanelController(TableManagement tableManagement){
-        this.tableManagement = tableManagement;
+    public UserDatabasePanelController(UserTableService userTableService){
+        this.userTableService = userTableService;
     }
 
     @PostMapping("/createNewTable")
@@ -34,7 +34,7 @@ public class UserDatabasePanelController {
                     || tableName.equals("") || primaryKeyName.equals("")) throw new Exception("Invalid input");
 
 
-            tableManagement.createNewTable(
+            userTableService.createNewTable(
                     databaseIdLong,
                     tableName,
                     primaryKeyName,
@@ -56,7 +56,7 @@ public class UserDatabasePanelController {
         try {
             tableIdLong = Long.parseLong(tableId);
             databaseIdLong = Long.parseLong(databaseId);
-            tableManagement.deleteTable(tableIdLong, databaseIdLong);
+            userTableService.deleteTable(tableIdLong, databaseIdLong);
 
         } catch (NumberFormatException nfe) {
             nfe.printStackTrace();
@@ -79,7 +79,7 @@ public class UserDatabasePanelController {
             int pageXINT = (int) pageXF;
             int pageYINT = (int) pageYF;
 
-            tableManagement.modifyTablePlacement(
+            userTableService.modifyTablePlacement(
                     tableIdLong,
                     pageXINT,
                     pageYINT);
@@ -99,12 +99,16 @@ public class UserDatabasePanelController {
         try {
             databaseIdLong = Long.parseLong(databaseId);
 
-            List<String> allTablesDetails = new ArrayList<>();
 
-            for (DatabaseTable dt : tableManagement.getDatabaseTables(databaseIdLong)) {
-                Long tableId = dt.getTableId();
-                allTablesDetails.add(tableManagement.getTableDetailsJson(tableId));
-            }
+            var databaseTables = userTableService.getDatabaseTables(databaseIdLong);
+
+            var allTablesDetails =
+                databaseTables
+                        .stream()
+                        .map(DatabaseTable::getTableId)
+                        .map(userTableService::getTableDetailsJson)
+                        .collect(Collectors.toList());
+
             return new Gson().toJson(allTablesDetails);
 
         } catch (NumberFormatException nfe) {
@@ -123,7 +127,7 @@ public class UserDatabasePanelController {
 
         try {
             tableIdLong = Long.parseLong(tableId);
-            return tableManagement.getTableDetailsJson(tableIdLong);
+            return userTableService.getTableDetailsJson(tableIdLong);
 
         } catch (NumberFormatException nfe) {
             nfe.printStackTrace();

@@ -1,19 +1,19 @@
 package pl.base.services;
 
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import pl.base.entities.TableData;
 import pl.base.repositories.FieldRepo;
-import pl.base.entities.TableField;
 import pl.base.repositories.TableDataRepoCustom;
-
 import javax.persistence.*;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
+import java.util.stream.IntStream;
 
-@Component
+
+@Service
 public class TableDataFilteredImpl implements TableDataRepoCustom {
 
     @PersistenceContext
@@ -27,67 +27,54 @@ public class TableDataFilteredImpl implements TableDataRepoCustom {
 
     @Override
     public List<TableData> findFilteredTableData(Map<String, String> params){
-        Long tabId = Long.parseLong(params.get("tableId"));
 
+        Long tableId = Long.parseLong(params.get("tableId"));
 
-        String SQLBaseQuery = "SELECT * FROM tables_data WHERE table_id = " + tabId;
+        String SQLBaseQuery = "SELECT * FROM tables_data WHERE table_id = " + tableId;
 
         StringBuilder SQL_QUERY_BUILDER = new StringBuilder(SQLBaseQuery);
 
-        Map<Integer, String> queryParameterName = new HashMap<>();
-        int queryParameter = 1;
+        var tableFields = fieldRepo.findByTableId(tableId);
 
-        List<TableData> result = new ArrayList<>();
-        for (TableField tf : fieldRepo.findByTableId(tabId)) {
+        var queryParamName = new ArrayList<String>();
+        var queryParamCount = new AtomicInteger(1);
 
-            Long id = tf.getFieldId();
-            String fieldType = tf.getFieldType();
-            String fieldName = tf.getFieldName();
-            String comparator = params.get(id + "comparator");
-            String filterValue = params.get(id + "filterValue");
+        tableFields.stream()
+                .filter(tableField -> validFilterValue(params.get(tableField.getFieldId() + "filterValue")))
+                .filter(tableField -> !params.get(tableField.getFieldId() + "comparator").equals("null"))
+                .map(tableField ->{
+                    Long id = tableField.getFieldId();
+                    String fieldType = tableField.getFieldType();
+                    String fieldName = tableField.getFieldName();
+                    String comparator = params.get(id + "comparator");
+                    String filterValue = params.get(id + "filterValue");
 
-            if(validFilterValue(filterValue)){
-                if (fieldType.equals("int")) {
+                    String SQLtoAppend;
+                    if (fieldType.equals("int")) {
 
-                    String SQLtoAppend = " AND CAST(JSON_EXTRACT(field_json_value, ?" + queryParameter + ") AS UNSIGNED)" + comparator + filterValue;
+                        SQLtoAppend = " AND CAST(JSON_EXTRACT(field_json_value, ?" + queryParamCount.getAndIncrement() + ") AS UNSIGNED)" + comparator + filterValue;
 
-                    SQL_QUERY_BUILDER.append(SQLtoAppend);
-                    queryParameterName.put(queryParameter, fieldName);
-                    queryParameter++;
-                } else {
+                    } else {
 
-                    String SQLtoAppend = " AND JSON_EXTRACT(field_json_value, " + "?" + queryParameter + ")" + comparator + "'" + filterValue + "'";
+                        SQLtoAppend = " AND JSON_EXTRACT(field_json_value, " + "?" + queryParamCount.getAndIncrement() + ")" + comparator + "'" + filterValue + "'";
 
-                    SQL_QUERY_BUILDER.append(SQLtoAppend);
-                    queryParameterName.put(queryParameter, fieldName);
-                    queryParameter++;
-                }
-            }
+                    }
 
-
-
-        }
+                    queryParamName.add(fieldName);
+                    return SQLtoAppend;
+                })
+                .forEach(SQL_QUERY_BUILDER::append);
 
 
-        Query q = em.createNativeQuery(SQL_QUERY_BUILDER.toString());
+        var newQuery = em.createNativeQuery(SQL_QUERY_BUILDER.toString(), TableData.class);
 
-        for (int i = 1; i < queryParameter; i++) {
-            q.setParameter(i, "$." + queryParameterName.get(i));
-        }
+        IntStream.range(1, queryParamCount.get())
+                .forEach(intNum -> newQuery.setParameter(intNum, "$." + queryParamName.get(intNum - 1)));
 
-        List<Object[]> res = q.getResultList();
 
-        for (Object[] elements : res) {
-            TableData temp = new TableData(
-                    Long.valueOf(String.valueOf(elements[0])),
-                    Long.valueOf(String.valueOf(elements[1])),
-                    String.valueOf(elements[2])
-            );
+        List<TableData> queryResultList = newQuery.getResultList();
 
-            result.add(temp);
-        }
-
-        return result;
+        return queryResultList;
 
 
     }
